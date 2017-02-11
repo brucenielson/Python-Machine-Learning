@@ -63,7 +63,7 @@ X = np.append(new_col, X, axis=1)
 print('Running gradient descent ...\n')
 
 # Choose some alpha value
-alpha = 0.01
+alpha = 0.1
 num_iters = 400
 
 # Init Theta and Run Gradient Descent
