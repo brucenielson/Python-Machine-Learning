@@ -69,23 +69,24 @@ num_iters = 400
 # Init Theta and Run Gradient Descent
 theta = np.zeros((3, 1),float)
 theta, J1 = lr.gradientDescentMulti(X, y, theta, alpha, num_iters)
-#thetax, J2 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.03, num_iters)
-#thetax, J3 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.1, num_iters)
-#thetax, J4 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.3, num_iters)
-#thetax, J5 = lr.gradientDescentMulti(X, y, [0, 0, 0], 1, num_iters)
+thetax, J2 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.03, num_iters)
+thetax, J3 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.1, num_iters)
+thetax, J4 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.3, num_iters)
+thetax, J5 = lr.gradientDescentMulti(X, y, [0, 0, 0], 1, num_iters)
 
 
 # Plot the convergence graph
 plt.figure(1)
 x_axis = np.linspace(1,J1.size, J1.size).reshape(400)
 y_axis = J1.reshape(400)
-plt.plot(x_axis, y_axis) #, '-b', 'LineWidth', 2
+plt.plot(x_axis, y_axis, 'b-', linewidth=2.0)
 
 #hold on
-#plot(1:numel(J2), J2, '-r', 'LineWidth', 2);
-#plot(1:numel(J3), J3, '-k', 'LineWidth', 2);
-#plot(1:numel(J4), J4, '-m', 'LineWidth', 2);
-#plot(1:numel(J5), J5, '-c', 'LineWidth', 2);
+plt.plot(x_axis, J2, 'r-', linewidth=2.0)
+plt.plot(x_axis, J3, 'k-', linewidth=2.0)
+plt.plot(x_axis, J4, 'm-', linewidth=2.0)
+plt.plot(x_axis, J5, 'c-', linewidth=2.0)
+
 
 plt.xlabel('Number of iterations')
 plt.ylabel('Cost J')
