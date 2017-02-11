@@ -98,63 +98,63 @@ for item in theta:
     print(item)
 
 
-"""
-% Estimate the price of a 1650 sq-ft, 3 br house
-% ====================== YOUR CODE HERE ======================
-% Recall that the first column of X is all-ones. Thus, it does
-% not need to be normalized.
-price = [1 (1650-mu(1))/sigma(1) (3-mu(2))/sigma(2)] * theta; % You should change this
+
+# Estimate the price of a 1650 sq-ft, 3 br house
+# ====================== YOUR CODE HERE ======================
+# Recall that the first column of X is all-ones. Thus, it does
+# not need to be normalized.
+
+price = np.matmul(np.array([1, (1650-mu[0])/sigma[0], (3-mu[1])/sigma[1]]).reshape(1,3), theta.reshape(3,1)) # You should change this
 
 
-% ============================================================
+# ============================================================
 
-fprintf(['Predicted price of a 1650 sq-ft, 3 br house ' ...
-         '(using gradient descent):\n $%f\n'], price);
+print('Predicted price of a 1650 sq-ft, 3 br house (using gradient descent):\n $%f\n' % price)
 
-fprintf('Program paused. Press enter to continue.\n');
-pause;
-"""
-"""
-%% ================ Part 3: Normal Equations ================
-
-fprintf('Solving with normal equations...\n');
-
-% ====================== YOUR CODE HERE ======================
-% Instructions: The following code computes the closed form
-%               solution for linear regression using the normal
-%               equations. You should complete the code in
-%               normalEqn.m
-%
-%               After doing so, you should complete this code
-%               to predict the price of a 1650 sq-ft, 3 br house.
-%
-
-%% Load Data
-data = csvread('ex1data2.txt');
-X = data(:, 1:2);
-y = data(:, 3);
-m = length(y);
-
-% Add intercept term to X
-X = [ones(m, 1) X];
-
-% Calculate the parameters from the normal equation
-theta = normalEqn(X, y);
-
-% Display normal equation's result
-fprintf('Theta computed from the normal equations: \n');
-fprintf(' %f \n', theta);
-fprintf('\n');
+input('Program paused. Press enter to continue.\n')
 
 
-% Estimate the price of a 1650 sq-ft, 3 br house
-% ====================== YOUR CODE HERE ======================
-price = price = [1 1650 3] * theta;
-"""
+# ================ Part 3: Normal Equations ================
+
+print('Solving with normal equations...\n')
+
+# ====================== YOUR CODE HERE ======================
+# Instructions: The following code computes the closed form
+#               solution for linear regression using the normal
+#               equations. You should complete the code in
+#               normalEqn.m
+#
+#               After doing so, you should complete this code
+#               to predict the price of a 1650 sq-ft, 3 br house.
+#
+
+# Load data
+data = pandas.read_csv('ex1data2.txt', header=None).as_matrix()
+print(type(data))
+X = data[:, 0:2]
+y = data[:, 2]
+m = len(y)
+
+
+# Add intercept term to X
+X = np.column_stack((np.ones((m, 1)), X))
+
+# Calculate the parameters from the normal equation
+theta = lr.normalEqn(X, y)
+
+# Display normal equation's result
+print('Theta computed from the normal equations: \n')
+for item in theta:
+    print(item)
+
+
+# Estimate the price of a 1650 sq-ft, 3 br house
+# ====================== YOUR CODE HERE ======================
+price = np.matmul(np.array([[1, 1650, 3]]), theta)
+
 
 
 #============================================================
 
-#fprintf(['Predicted price of a 1650 sq-ft, 3 br house ' ...
-#         '(using normal equations):\n $%f\n'], price);
+print('Predicted price of a 1650 sq-ft, 3 br house (using normal equations):\n $%f\n' % price)
 

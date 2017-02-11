@@ -27,9 +27,11 @@ def featureNormalize(X):
     # is 1. This is often a good preprocessing step to do when
     # working with learning algorithms.
     # Returns X_norm, mu, sigma
+
+    f = np.size(X, axis=1)
     X_norm = np.zeros(np.size(X))
-    mu = np.zeros((1, np.size(X, axis=1)), float) # size(X, axis=1) returns number of columns: shape(1,features)
-    sigma = np.zeros((1, np.size(X, axis=1)), float) # shape(1, features)
+    mu = np.zeros((1, f), float) # size(X, axis=1) returns number of columns: shape(1,features)
+    sigma = np.zeros((1, f), float) # shape(1, features)
 
     # First, for each feature dimension, compute the mean
     # of the feature and subtract it from the dataset,
@@ -43,13 +45,13 @@ def featureNormalize(X):
     # to perform the normalization separately for
     # each feature.
 
-    for i in range(0, np.size(X, axis=1)): # For i = 1 to number of columns
+    for i in range(0, f): # For i = 1 to number of columns
       mu[0,i] = np.mean(X, axis=0)[i] # find mean of each column and create a vector of those means
       sigma[0,i] = np.std(X, axis=0)[i] # find standard deviation for each column and store in a vector
 
     X_norm = (X - mu) / sigma # Return a new version of X that is element wise mean adjusted and standard deviation adjusted
 
-    return X_norm, mu, sigma
+    return X_norm, mu.reshape(f,1), sigma.reshape(f,1)
 
 
 
@@ -68,7 +70,7 @@ def gradientDescentMulti(X, y, theta, alpha, num_iters):
     f = np.size(X, axis=1) # of features
     y = np.array(y).reshape((m,1)) # Change y shape from (47,) to (47,1) so I can work with it as a matrix easier.
     J_history = np.zeros((num_iters, 1), float) # Shape(400,1)
-    summed = np.zeros((f,1), float) # Shape(f,1) to match theta which is shape(3,1)
+    summed = np.zeros((f,1), float) # Shape(f,1) which is the sum of each column (i.e. feature for each example)
     theta = np.reshape(theta, (f,1)) # Force theta into shape(f,1)
 
     # Run through # of iterations
@@ -78,12 +80,17 @@ def gradientDescentMulti(X, y, theta, alpha, num_iters):
         #       of the cost function (computeCostMulti) and gradient here.
 
         hypo = 	np.matmul(X, theta) # shape(samples, features) * shape(features, 1) = shape(samples, 1)
-        for i in range(0, np.size(X, axis=1)): # iterate over each column
-          Xcol = X[:,i].reshape(m,1)
-          value = (hypo - y) * Xcol
-          summed[i] = sum(value) # sum columns
-          theta[i] = theta[i] - alpha * (1/m) * summed[i]
+        diff = hypo - y # difference between the hypothesis and the real answers. shape(47,1)
 
+        #for i in range(0, np.size(X, axis=1)): # iterate over each column
+        #  Xcol = X[:,i].reshape(m,1)
+        #  value = diff * Xcol
+        #  summed[i] = sum(value) # sum columns
+        #  theta[i] = theta[i] - alpha * (1/m) * summed[i]
+
+        # Matrix version
+        summed = np.sum(X * diff, axis=0).reshape(f, 1) # Shape(features, 1) i.e. (3, 1)
+        theta = theta - alpha * (1/m) * summed
 
         # Save the cost J in every iteration
         J_history[iter] = computeCostMulti(X, y, theta)
@@ -97,13 +104,24 @@ def normalEqn(X, y):
     #   NORMALEQN(X,y) computes the closed-form solution to linear
     #   regression using the normal equations.
     # Returns theta
+
+    # make sure inputs are numpy arrays
+    X = np.array(X)
+    m = np.size(X, axis=0) # Get number of training examples
+    f = np.size(X, axis=1) # Get number of features
+    y = np.array(y).reshape((m,1))
+
     theta = np.zeros((np.size(X, axis=1), 1))
 
     # Instructions: Complete the code to compute the closed form solution
     #               to linear regression and put the result in theta.
 
     #θ =(XT*X)−1*XT~y.
-    X_trans = np.transpose(X)
-    theta = np.linalg.pinv(np.matrixmultipy(np.matrixmultipy(X_trans, X),  np.dot(X_trans * y)))
-    return theta
+    # theta = pinv(X'*X)*X' * y
+    X_trans = X.T
+    part1 = np.linalg.pinv(np.matmul(X_trans,X))
+    part2 = np.matmul(part1, X_trans)
+    theta = np.matmul(part2, y)
+    #theta = np.linalg.pinv(np.matmul(np.matmul(X_trans, X),  np.matmul(X_trans, y)))
+    return theta.reshape(f,1)
 
