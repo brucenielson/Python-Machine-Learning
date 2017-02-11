@@ -9,10 +9,10 @@ def get_answers():
     import pickle
     import os
 
-    #f = open(os.path.dirname(__file__)+"\\"+'testdata.txt')
-    #data = pickle.load(f, encoding='bytes')
-    #f.close()
-    #return data
+    f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', "rb")
+    data = pickle.load(f, encoding='bytes')
+    f.close()
+    return data
     return ""
 
 answers = get_answers()
@@ -30,9 +30,10 @@ class test_linear_regression(unittest.TestCase):
         m = len(y)
 
         X, mu, sigma = featureNormalize(X)
-        self.failIf(X != answers['X'])
-        self.failIf(mu != answers['mu'])
-        self.failIf(sigma != answers['sigma'])
+        value = np.allclose(X, answers['X'])
+        self.failUnless(np.allclose(X, answers['X']))
+        self.failUnless(np.allclose(mu, answers['mu']))
+        self.failUnless(np.allclose(sigma, answers['sigma']))
         return
 
 

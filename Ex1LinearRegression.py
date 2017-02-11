@@ -29,6 +29,7 @@ input('Program paused. Press enter to continue.\n')
 print('Normalizing Features ...\n')
 
 X, mu, sigma = lr.featureNormalize(X)
+X_norm = np.copy(X)
 
 
 # Add intercept term to X
@@ -174,7 +175,7 @@ def create_answers():
     # Feature normalize
     # X, mu, sigma = featureNormalize(X)
     answers = {}
-    answers['X'] = X
+    answers['X'] = X_norm
     answers['mu']= mu
     answers['sigma'] = sigma
     pickle.dump(answers, f) #, protocol=pickle.HIGHEST_PROTOCOL
