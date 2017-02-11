@@ -69,15 +69,17 @@ num_iters = 400
 # Init Theta and Run Gradient Descent
 theta = np.zeros((3, 1),float)
 theta, J1 = lr.gradientDescentMulti(X, y, theta, alpha, num_iters)
-thetax, J2 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.03, num_iters)
-thetax, J3 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.1, num_iters)
-thetax, J4 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.3, num_iters)
-thetax, J5 = lr.gradientDescentMulti(X, y, [0, 0, 0], 1, num_iters)
+#thetax, J2 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.03, num_iters)
+#thetax, J3 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.1, num_iters)
+#thetax, J4 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.3, num_iters)
+#thetax, J5 = lr.gradientDescentMulti(X, y, [0, 0, 0], 1, num_iters)
 
 
 # Plot the convergence graph
 plt.figure(1)
-plt.plot((range(1,J1.size+1)), J1) #, '-b', 'LineWidth', 2
+x_axis = np.linspace(1,J1.size, J1.size).reshape(400)
+y_axis = J1.reshape(400)
+plt.plot(x_axis, y_axis) #, '-b', 'LineWidth', 2
 
 #hold on
 #plot(1:numel(J2), J2, '-r', 'LineWidth', 2);
@@ -87,13 +89,14 @@ plt.plot((range(1,J1.size+1)), J1) #, '-b', 'LineWidth', 2
 
 plt.xlabel('Number of iterations')
 plt.ylabel('Cost J')
-
+plt.show()
 
 
 # Display gradient descent's result
 print('Theta computed from gradient descent: \n')
-print(' %f \n', theta)
-print('\n')
+for item in theta:
+    print(item)
+
 
 """
 % Estimate the price of a 1650 sq-ft, 3 br house
