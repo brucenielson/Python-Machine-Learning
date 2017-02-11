@@ -159,3 +159,26 @@ price = np.matmul(np.array([[1, 1650, 3]]), theta)
 
 print('Predicted price of a 1650 sq-ft, 3 br house (using normal equations):\n $%f\n' % price)
 
+
+
+# Save off answers from above for unit tests
+def create_answers():
+    import pickle
+    import os
+
+    try:
+        os.remove(os.path.dirname(__file__)+"\\testdata.txt")
+    finally:
+        f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
+
+    # Feature normalize
+    # X, mu, sigma = featureNormalize(X)
+    answers = {}
+    answers['X'] = X
+    answers['mu']= mu
+    answers['sigma'] = sigma
+    pickle.dump(answers, f) #, protocol=pickle.HIGHEST_PROTOCOL
+
+
+
+
