@@ -29,12 +29,12 @@ input('Program paused. Press enter to continue.\n')
 print('Normalizing Features ...\n')
 
 X, mu, sigma = lr.featureNormalize(X)
-X_norm = np.copy(X)
 
 
 # Add intercept term to X
 new_col = np.ones((m, 1), float)
 X = np.append(new_col, X, axis=1)
+X_norm = np.copy(X)
 
 
 # ================ Part 2: Gradient Descent ================
@@ -70,6 +70,7 @@ num_iters = 400
 # Init Theta and Run Gradient Descent
 theta = np.zeros((3, 1),float)
 theta, J1 = lr.gradientDescentMulti(X, y, theta, alpha, num_iters)
+theta_gd = np.copy(theta)
 thetax, J2 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.03, num_iters)
 thetax, J3 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.1, num_iters)
 thetax, J4 = lr.gradientDescentMulti(X, y, [0, 0, 0], 0.3, num_iters)
@@ -107,7 +108,7 @@ for item in theta:
 # not need to be normalized.
 
 price = np.matmul(np.array([1, (1650-mu[0])/sigma[0], (3-mu[1])/sigma[1]]).reshape(1,3), theta.reshape(3,1)) # You should change this
-
+price_gd = np.copy(price)
 
 # ============================================================
 
@@ -143,6 +144,7 @@ X = np.column_stack((np.ones((m, 1)), X))
 
 # Calculate the parameters from the normal equation
 theta = lr.normalEqn(X, y)
+theta_norm = np.copy(theta)
 
 # Display normal equation's result
 print('Theta computed from the normal equations: \n')
@@ -153,7 +155,7 @@ for item in theta:
 # Estimate the price of a 1650 sq-ft, 3 br house
 # ====================== YOUR CODE HERE ======================
 price = np.matmul(np.array([[1, 1650, 3]]), theta)
-
+price_norm = np.copy(price)
 
 
 #============================================================
@@ -178,6 +180,15 @@ def create_answers():
     answers['X'] = X_norm
     answers['mu']= mu
     answers['sigma'] = sigma
+    answers['theta_gd'] = theta_gd
+    answers['J1'] = J1
+    answers['theta_norm'] = theta_norm
+    answers['price_gd'] = price_gd
+    answers['price_norm'] = price_norm
+
+    cost = lr.computeCostMulti(X_norm, y, theta_gd)
+    answers['cost'] = cost
+
     pickle.dump(answers, f) #, protocol=pickle.HIGHEST_PROTOCOL
 
 

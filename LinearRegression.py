@@ -11,6 +11,7 @@ def computeCostMulti(X, y, theta):
     m = len(y) # number of training examples
     f = np.size(X, axis=1)  # of features
     theta = theta.reshape((f, 1))  # Force theta into shape(f,1)
+    y = y.reshape(m, 1) # Make sure y is a matrix shape instead of an array
 
     # Compute the cost of a particular choice of theta
     hypo = np.matmul(X, theta) # shape(m,f) * (f,1) = (m,1)
