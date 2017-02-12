@@ -17,7 +17,6 @@ def computeCostMulti(X, y, theta):
     hypo = np.matmul(X, theta) # shape(m,f) * (f,1) = (m,1)
     costs = np.power((hypo - y), 2) # shape(m,1)
     return sum(costs)/(2*m) # final cost is a single number
-    # Redo with a matrix version of this once I know it works
 
 
 
