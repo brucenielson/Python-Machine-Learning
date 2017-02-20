@@ -5,7 +5,7 @@ import logging as log
 import time
 import sklearn
 from PlotDecision import plot_decision_regions
-from sklearn.preprocessing import LabelEncoder
+from sklearn import preprocessing
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
@@ -27,19 +27,63 @@ def munge_data(data):
     else:
         y = None
 
-    X = fix_missing_values(X, 'Age')
-    X = fix_missing_values(X, 'Fare')
-
-    # Pare Name and Cabin down
-    # For name we just want "Master", "Mr", "Miss", "Mrs"
+    # Out of name and cabin, create title and deck
+    # For name we just want "Master", "Mr", "Miss", "Mrs" etc
     # For cabin we want just the deck letter
-    X['Name'] = X.apply(lambda x: name_to_title(x['Name']), axis=1)
-    X['Cabin'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
+    X['Title'] = X.apply(lambda x: name_to_title(x['Name']), axis=1)
+    X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
+    X['Adj Age'] = X.apply(lambda x: x['Age'] if ~np.isnan(x['Age']) else fix_age(x['Title']), axis=1)
+    X['Embarked'] = X.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
+    # Now Drop Name and Cabin because we no longer need them
+    X = X.drop('Name', axis=1)
+    X = X.drop('Cabin', axis=1)
+    X = X.drop('Age', axis=1)
 
-    cols_to_transform = ['Sex', 'Embarked', 'Name', 'Cabin']
-    X = pd.get_dummies(X, columns = cols_to_transform )
+
+    le = preprocessing.LabelEncoder()
+    # Label Encode Sex
+    le.fit(X.Sex.unique())
+    X['Sex'] = le.transform(X['Sex'])
+    # Label Encode Title
+    le.fit(X.Title.unique())
+    X['Title'] = le.transform(X['Title'])
+    # Label Encode Deck
+    le.fit(X.Deck.unique())
+    X['Deck'] = le.transform(X['Deck'])
+    # Label Encode Embarked
+    le.fit(X.Embarked.unique())
+    X['Embarked'] = le.transform(X['Embarked'])
+    # Old way
+    #cols_to_transform = ['Sex', 'Embarked', 'Title', 'Deck']
+    #X = pd.get_dummies(X, columns = cols_to_transform )
+
+    # Fix using Imputer -- fill in with mean
+    imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
+    X_imputed = imp.fit_transform(X)
+    X = pd.DataFrame(X_imputed, columns=X.columns)
+    X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
+    # Old way
+    #X = fix_missing_values(X, 'Adj Age')
+    #X = fix_missing_values(X, 'Fare')
 
     return X, y
+
+
+def fix_age(title):
+    # Use average from training set for ages of titles
+    if title == 'Capt': return 70.0
+    elif title == 'Col': return 58.0
+    elif title == 'Countess': return 33.0
+    elif title == 'Dr': return 42.0
+    elif title == 'Major': return 48.5
+    elif title == 'Master': return 4.574167
+    elif title == 'Miss': return 21.773973
+    elif title == 'Mr': return 32.409774
+    elif title == 'Mrs': return 35.900000
+    elif title == 'Ms': return 28.000000
+    elif title == 'NA': return 31.500000
+    elif title == 'Rev': return 43.166667
+    else: return -1.0
 
 
 def name_to_title(name):
@@ -71,24 +115,28 @@ def name_to_title(name):
 
 def cabin_to_deck(cabin):
     cabin = str(cabin)
-    if cabin:
+    if cabin != 'nan':
         # Get first character as that is the deck
         return cabin[0]
     else:
         return "NA"
 
 
+
+"""
 def fix_missing_values(X, column_name):
+    # Old way I created a separate minor feature that the column was missing than set it to -1
     X['Has '+ column_name] = X.apply(lambda x: ~np.isnan(x[column_name]), axis=1)
-    X[column_name] = X[column_name].fillna(-100)
+    X[column_name] = X[column_name].fillna(-1.0)
+    # But now, I'm going to fill in the mean value if it's missing using the imputer, so this is no longer used
     return X
+"""
 
 
 
 
 def train_titanic_tree(X, y):
-    print(X)
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=7)
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=None)
     tree.fit(X_train, y_train)
     return tree
 
@@ -97,7 +145,13 @@ def train_titanic_tree(X, y):
 trainfile = os.getcwd() + '\\Titanic\\train.csv'
 train_data = pd.read_csv(trainfile)
 X_train, y_train = munge_data(train_data)
-#print(X_train)
+
+X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
+
+# How to return average age by each Title
+#master = X_train.loc[(~pd.isnull(X_train['Age']))] # & (X_train['Title'] == 'Col')
+#mean_by_group = master.groupby('Title').mean()
+#print(mean_by_group['Age'])
 
 tree = train_titanic_tree(X_train, y_train)
 y_pred = tree.predict(X_train)
@@ -107,7 +161,7 @@ print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values)
 
-"""
+
 # Now try test data
 testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
@@ -119,4 +173,3 @@ y_pred.columns = ['Survived']
 
 final_submission = pd.concat([X_test['PassengerId'], y_pred], axis=1)
 final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
-"""
