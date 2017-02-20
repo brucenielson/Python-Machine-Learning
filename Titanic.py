@@ -7,6 +7,7 @@ import sklearn
 from PlotDecision import plot_decision_regions
 from sklearn import preprocessing
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
 import math
@@ -139,6 +140,9 @@ def train_titanic_tree(X, y):
     tree = DecisionTreeClassifier(criterion='entropy', max_depth=None)
     tree.fit(X_train, y_train)
     return tree
+    #forest = RandomForestClassifier(criterion='entropy', n_estimators=100, random_state=1,n_jobs=2)
+    #forest.fit(X, y)
+    #return forest
 
 
 # Read in training data
@@ -159,7 +163,7 @@ y_pred = tree.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values)
+#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values)
 
 
 # Now try test data
