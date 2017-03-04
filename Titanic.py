@@ -104,6 +104,14 @@ def munge_data(data):
     #X = X.drop('Parch', axis=1) #165
     #X = X.drop('Title', axis=1) #168
 
+    # Scale
+    col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
+    features = X[col_names]
+    scaler = StandardScaler().fit(features.values)
+    features = scaler.transform(features.values)
+    X[col_names] = features
+    #print(X)
+
     # Force order of columns
     X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
 
@@ -188,17 +196,25 @@ def fix_missing_values(X, column_name):
 
 
 
-
+from sklearn.feature_selection import RFECV
 def train_titanic_tree(X, y):
-    col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
-    features = X[col_names]
-    scaler = StandardScaler().fit(features.values)
-    features = scaler.transform(features.values)
-    X[col_names] = features
-    #print(X)
+    # Find best features to trai on
+    # Create the RFE object and compute a cross-validated score.
+    # The "accuracy" scoring is proportional to the number of correct
+    # classifications
     model = LogisticRegression(max_iter=1000, C=0.01)
+    rfecv = RFECV(estimator=model, step=1, scoring='accuracy')
+    rfecv.fit(X, y)
+    features = X.columns
+    ranks = rfecv.ranking_
+    best_features = []
+    for i in range(0, len(features)):
+        if ranks[i] == 1:
+            best_features.append(features[i])
+    X = X[best_features]
+    print(best_features)
     model.fit(X, y)
-    return model
+    return model, best_features
 
     #tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
     #tree.fit(X_train, y_train)
@@ -221,8 +237,10 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 #mean_by_group = master.groupby('Title').mean()
 #print(mean_by_group['Age'])
 
-tree = train_titanic_tree(X_train, y_train)
+tree, best_features = train_titanic_tree(X_train, y_train)
+X_train = X_train[best_features]
 y_pred = tree.predict(X_train)
+# change X_test to match X_train shape
 
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
@@ -233,8 +251,8 @@ print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 X_test, y_test = munge_data(test_data)
+X_test = X_test[best_features]
 #X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
-
 
 y_pred = tree.predict(X_test)
 y_pred = pd.DataFrame(y_pred)
