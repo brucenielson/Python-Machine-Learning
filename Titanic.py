@@ -25,7 +25,7 @@ from sklearn.metrics import accuracy_score
 
 def munge_data(data):
     # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
-    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name']] #, 'Cabin', 'Ticket']]
+    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in data:
         y = data['Survived']
     else:
@@ -35,19 +35,24 @@ def munge_data(data):
     # For name we just want "Master", "Mr", "Miss", "Mrs" etc
     # For cabin we want just the deck letter
     X['Title'] = X.apply(lambda x: name_to_title(x['Name']), axis=1)
-    #X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
+    X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
     X['Adj Age'] = X.apply(lambda x: x['Age'] if ~np.isnan(x['Age']) else fix_age(x['Title']), axis=1)
     X['Embarked'] = X.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
-    #X['TicketPre'] = get_ticket_prefix(X['Ticket'])
+    X['TicketPre'] = get_ticket_prefix(X['Ticket'])
     # Now Drop Name and Cabin because we no longer need them
     X = X.drop('Name', axis=1)
-    #X = X.drop('Cabin', axis=1)
+    X = X.drop('Cabin', axis=1)
     X = X.drop('Age', axis=1)
-    #X = X.drop('Ticket', axis=1)
+    X = X.drop('Ticket', axis=1)
 
     # Temp drops to try regression
     X = X.drop('Title', axis=1)
     X = X.drop('Embarked', axis=1)
+    X = X.drop('TicketPre', axis=1)
+    X = X.drop('Deck', axis=1)
+    # Temp add new features for regression
+    X['Age2'] = X['Adj Age']**2
+    X['Fare2'] = X['Fare']**2
 
     """
     # Label Encoder way
@@ -181,13 +186,13 @@ def fix_missing_values(X, column_name):
 
 def train_titanic_tree(X, y):
     stdsc = StandardScaler()
-    col_names = ['Adj Age',  'SibSp', 'Parch', 'Fare']
+    col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
     features = X[col_names]
     scaler = StandardScaler().fit(features.values)
     features = scaler.transform(features.values)
     X[col_names] = features
-    print(X)
-    model = LogisticRegression(max_iter=100, C=0.01)
+    #print(X)
+    model = LogisticRegression(max_iter=1000, C=0.01)
     model.fit(X, y)
     return model
 
