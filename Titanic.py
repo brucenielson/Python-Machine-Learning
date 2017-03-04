@@ -4,13 +4,16 @@ import os
 import logging as log
 import time
 import sklearn
+import math
+import re
 from PlotDecision import plot_decision_regions
 from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
-import math
 # from importlib import reload
 
 
@@ -22,7 +25,7 @@ import math
 
 def munge_data(data):
     # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
-    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin']]
+    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name']] #, 'Cabin', 'Ticket']]
     if 'Survived' in data:
         y = data['Survived']
     else:
@@ -32,15 +35,22 @@ def munge_data(data):
     # For name we just want "Master", "Mr", "Miss", "Mrs" etc
     # For cabin we want just the deck letter
     X['Title'] = X.apply(lambda x: name_to_title(x['Name']), axis=1)
-    X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
+    #X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
     X['Adj Age'] = X.apply(lambda x: x['Age'] if ~np.isnan(x['Age']) else fix_age(x['Title']), axis=1)
     X['Embarked'] = X.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
+    #X['TicketPre'] = get_ticket_prefix(X['Ticket'])
     # Now Drop Name and Cabin because we no longer need them
     X = X.drop('Name', axis=1)
-    X = X.drop('Cabin', axis=1)
+    #X = X.drop('Cabin', axis=1)
     X = X.drop('Age', axis=1)
+    #X = X.drop('Ticket', axis=1)
 
+    # Temp drops to try regression
+    X = X.drop('Title', axis=1)
+    X = X.drop('Embarked', axis=1)
 
+    """
+    # Label Encoder way
     le = preprocessing.LabelEncoder()
     # Label Encode Sex
     le.fit(X.Sex.unique())
@@ -54,9 +64,15 @@ def munge_data(data):
     # Label Encode Embarked
     le.fit(X.Embarked.unique())
     X['Embarked'] = le.transform(X['Embarked'])
+    # Label Encode Ticket Prefix
+    le.fit(X.TicketPre.unique())
+    X['TicketPre'] = le.transform(X['TicketPre'])
+    """
+
     # Old way
-    #cols_to_transform = ['Sex', 'Embarked', 'Title', 'Deck']
-    #X = pd.get_dummies(X, columns = cols_to_transform )
+    cols_to_transform = ['Pclass', 'Sex'] #, 'Embarked', 'Title', 'Deck', 'TicketPre']
+    X = pd.get_dummies(X, columns = cols_to_transform )
+    #print(X)
 
     # Fix using Imputer -- fill in with mean
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
@@ -74,11 +90,27 @@ def munge_data(data):
     #X = X.drop('Fare', axis=1)  # 137
     #X = X.drop('SibSp', axis=1) #145
     #X = X.drop('Embarked', axis=1) #150
-    X = X.drop('Deck', axis=1) #165
-    X = X.drop('Parch', axis=1) #165
-    X = X.drop('Title', axis=1) #168
+
+    # columns to drop with a decision tree
+    #X = X.drop('TicketPre', axis=1) #150
+    #X = X.drop('Deck', axis=1) #165
+    #X = X.drop('Parch', axis=1) #165
+    #X = X.drop('Title', axis=1) #168
 
     return X, y
+
+
+
+def get_ticket_prefix(tickets):
+    regex = re.compile('[^a-zA-Z]')
+    # First parameter is the replacement, second parameter is your input string
+    # i.e. regex.sub('', 'ab3d*E')
+    # Out: 'abdE'
+    ticket_prefixes = [regex.sub('', ticket).upper() for ticket in tickets]
+    ticket_prefixes = [ticket or 'NA' for ticket in ticket_prefixes]
+    return ticket_prefixes
+
+
 
 
 def fix_age(title):
@@ -148,10 +180,22 @@ def fix_missing_values(X, column_name):
 
 
 def train_titanic_tree(X, y):
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
-    tree.fit(X_train, y_train)
-    return tree
-    #forest = RandomForestClassifier(criterion='entropy', n_estimators=100, random_state=1,n_jobs=2)
+    stdsc = StandardScaler()
+    col_names = ['Adj Age',  'SibSp', 'Parch', 'Fare']
+    features = X[col_names]
+    scaler = StandardScaler().fit(features.values)
+    features = scaler.transform(features.values)
+    X[col_names] = features
+    print(X)
+    model = LogisticRegression(max_iter=100, C=0.01)
+    model.fit(X, y)
+    return model
+
+    #tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
+    #tree.fit(X_train, y_train)
+    #return tree
+
+    #forest = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
     #forest.fit(X, y)
     #return forest
 
@@ -174,7 +218,7 @@ y_pred = tree.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
+#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
 
 # Now try test data
 testfile = os.getcwd() + '\\Titanic\\test.csv'
