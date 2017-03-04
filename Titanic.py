@@ -22,7 +22,7 @@ import math
 
 def munge_data(data):
     # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
-    X = data[['PassengerId', 'Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin']]
+    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin']]
     if 'Survived' in data:
         y = data['Survived']
     else:
@@ -62,10 +62,21 @@ def munge_data(data):
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
     X_imputed = imp.fit_transform(X)
     X = pd.DataFrame(X_imputed, columns=X.columns)
-    X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
+
+    #X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
     # Old way
     #X = fix_missing_values(X, 'Adj Age')
     #X = fix_missing_values(X, 'Fare')
+
+    # Test one field at a time
+    #X = X.drop('Adj Age', axis=1)
+    #X = X.drop('Pclass', axis=1)
+    #X = X.drop('Fare', axis=1)  # 137
+    #X = X.drop('SibSp', axis=1) #145
+    #X = X.drop('Embarked', axis=1) #150
+    X = X.drop('Deck', axis=1) #165
+    X = X.drop('Parch', axis=1) #165
+    X = X.drop('Title', axis=1) #168
 
     return X, y
 
@@ -137,7 +148,7 @@ def fix_missing_values(X, column_name):
 
 
 def train_titanic_tree(X, y):
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=None)
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
     tree.fit(X_train, y_train)
     return tree
     #forest = RandomForestClassifier(criterion='entropy', n_estimators=100, random_state=1,n_jobs=2)
@@ -163,17 +174,18 @@ y_pred = tree.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values)
-
+export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
 
 # Now try test data
 testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 X_test, y_test = munge_data(test_data)
 #X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
+
+
 y_pred = tree.predict(X_test)
 y_pred = pd.DataFrame(y_pred)
 y_pred.columns = ['Survived']
 
-final_submission = pd.concat([X_test['PassengerId'], y_pred], axis=1)
+final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
 final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
