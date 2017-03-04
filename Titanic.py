@@ -47,7 +47,7 @@ def munge_data(data):
 
     # Temp drops to try regression
     X = X.drop('Title', axis=1)
-    X = X.drop('Embarked', axis=1)
+    #X = X.drop('Embarked', axis=1)
     X = X.drop('TicketPre', axis=1)
     X = X.drop('Deck', axis=1)
     # Temp add new features for regression
@@ -75,8 +75,10 @@ def munge_data(data):
     """
 
     # Old way
-    cols_to_transform = ['Pclass', 'Sex'] #, 'Embarked', 'Title', 'Deck', 'TicketPre']
+    cols_to_transform = ['Pclass', 'Sex', 'Embarked'] #, 'Title', 'Deck', 'TicketPre']
     X = pd.get_dummies(X, columns = cols_to_transform )
+    if not ('Embarked_NA' in X):
+        X['Embarked_NA'] = 0
     #print(X)
 
     # Fix using Imputer -- fill in with mean
@@ -101,6 +103,9 @@ def munge_data(data):
     #X = X.drop('Deck', axis=1) #165
     #X = X.drop('Parch', axis=1) #165
     #X = X.drop('Title', axis=1) #168
+
+    # Force order of columns
+    X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
 
     return X, y
 
@@ -185,7 +190,6 @@ def fix_missing_values(X, column_name):
 
 
 def train_titanic_tree(X, y):
-    stdsc = StandardScaler()
     col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
     features = X[col_names]
     scaler = StandardScaler().fit(features.values)
