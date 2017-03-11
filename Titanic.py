@@ -21,7 +21,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import VotingClassifier
-
+from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
 
 # Start log file
 # logfile=os.getcwd()+'\\titanic.log'
@@ -246,6 +246,7 @@ def rank_features(X, rankings):
 
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
+from sklearn.naive_bayes import GaussianNB
 def train_ensemble_classifier(X, y):
 
     # Create Pipeline for LogisticRegression using Recursive Feature Elimination
@@ -278,20 +279,23 @@ def train_ensemble_classifier(X, y):
     knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
     # Create RandomForest model
     rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+    # Naive Bayes
+    nb = GaussianNB()
 
     # Create majority vote ensemble classifier
-    ensemble_clf = VotingClassifier(estimators=[('pipelr', pipe_lr), ('knn', knn), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=[1,1,3,1])
+    ensemble_clf = VotingClassifier(estimators=[('pipelr', pipe_lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=[1,1,0,2,1])
 
     gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
-    gs = gs.fit(X, y)
+    # Do grid search
+    model = gs.fit(X, y)
 
     print("Best Cross Validation Score: " + str(gs.best_score_))
     print("Best Parameters: " + str(gs.best_params_))
 
     # Run it
-    gs.fit(X, y)
+    model.fit(X, y)
 
-    return gs
+    return model
 
 
 def train_classifier(X, y):
@@ -355,6 +359,11 @@ y_pred = clf.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
+
+# Try Kfold Cross Validation and get a more realistic score
+scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
+print('CV accuracy scores: %s' % scores)
+print('CV accuracy: #.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
 # Now try test data
 testfile = os.getcwd() + '\\Titanic\\test.csv'
