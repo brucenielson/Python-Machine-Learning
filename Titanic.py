@@ -14,13 +14,14 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
-# from importlib import reload
+from importlib import reload
 from sklearn.feature_selection import RFECV
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import VotingClassifier
+
 
 # Start log file
 # logfile=os.getcwd()+'\\titanic.log'
@@ -201,43 +202,107 @@ def fix_missing_values(X, column_name):
 
 
 
-def train_titanic_tree(X, y):
-    # Find best features to trai on
-    # Create the RFE object and compute a cross-validated score.
-    # The "accuracy" scoring is proportional to the number of correct
+def get_best_features(X, y):
+    tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns)/2)
+    tree.fit(X, y)
+
+    # Find best features to train on
+    importances = tree.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    indices = indices[0:10]
+    #std = np.std(tree.feature_importances_, axis=0)
+    # Get 10 best features for Tree
+    best_tree = []
+    for f in indices:
+        best_tree.append(X.columns[f])
+
     # classifications
     model = LogisticRegression(max_iter=1000, C=0.01)
+    # Create the RFE object and compute a cross-validated score.
+    # The "accuracy" scoring is proportional to the number of correct
     rfecv = RFECV(estimator=model, step=1, scoring='accuracy')
     rfecv.fit(X, y)
     features = X.columns
     ranks = rfecv.ranking_
+    best_lr = rank_features(X, ranks)
+
+    best_features = list(set(best_tree) & set(best_lr))
+
+    return best_features
+
+
+
+def rank_features(X, rankings):
+    # The "accuracy" scoring is proportional to the number of correct classifications
+    features = X.columns
+    ranks = rankings
     best_features = []
     for i in range(0, len(features)):
         if ranks[i] == 1:
             best_features.append(features[i])
-    X = X[best_features]
-    print(best_features)
-    model.fit(X, y)
-    return model, best_features
+    return best_features
 
-    #tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
-    #tree.fit(X_train, y_train)
-    #return tree
 
-    #forest = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
-    #forest.fit(X, y)
-    #return forest
+
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+def train_ensemble_classifier(X, y):
+
+    # Create Pipeline for LogisticRegression using Recursive Feature Elimination
+    # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
+    lr = LogisticRegression()
+    rfecv = RFECV(estimator=lr, step=1, scoring='accuracy', cv=10)
+    params = [('rfecv', rfecv), ('lr', lr) ]
+    pipe_lr = Pipeline(params)
+    C_range = 10. ** np.arange(-2, 2)
+    #penalty_options = ['l1', 'l2']
+    param_grid = dict(pipelr__lr__C = C_range) #, lr__penalty = penalty_options)
+
+    """
+    # Create Pipeline for SVC
+    linear_svc = SVC(probability=True, kernel='linear')
+    rfecv = RFECV(estimator=linear_svc, step=1, scoring='accuracy', cv=10)
+    params = [('rfecv', rfecv), ('svc', linear_svc) ]
+    pipe_svc = Pipeline(params)
+    C_range = 10. ** np.arange(-2, 2)
+    param_grid.update(dict(pipesvc__svc__C = C_range))
+    """
+
+    # Grid search kernel SVCs
+    svc = SVC(probability=True, kernel='poly')
+    C_range = 10. ** np.arange(-2, 2)
+    #kernel_options = ['poly', 'rbf', 'sigmoid']
+    param_grid.update(dict(svc__C=C_range)) #, svc__kernel = kernel_options))
+
+    # Create KNearestNeighbor model
+    knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
+    # Create RandomForest model
+    rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+
+    # Create majority vote ensemble classifier
+    ensemble_clf = VotingClassifier(estimators=[('pipelr', pipe_lr), ('knn', knn), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=[1,1,3,1])
+
+    gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
+    gs = gs.fit(X, y)
+
+    print("Best Cross Validation Score: " + str(gs.best_score_))
+    print("Best Parameters: " + str(gs.best_params_))
+
+    # Run it
+    gs.fit(X, y)
+
+    return gs
 
 
 def train_classifier(X, y):
     # Create comprehensive pipeline of:
     # Decision Tree, Random Forest, LogisticRegression, KNN, SVC
     #dtc = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
-    rfc = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
-    knn = KNeighborsClassifier(n_neighbors=5, p=2, metric='minkowski')
-    lr = LogisticRegression(max_iter=1000, C=0.1)
-    svc = SVC(max_iter=1000, probability=True)
-    ensemble_clf = VotingClassifier(estimators=[('rfc', rfc), ('knn', knn), ('lr', lr), ('svc', svc)], voting='hard')
+    #rfc = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
+    #knn = KNeighborsClassifier(n_neighbors=5, p=2, metric='minkowski')
+    #lr = LogisticRegression(max_iter=1000, C=0.1)
+    #svc = SVC(max_iter=1000, probability=True)
+    #ensemble_clf = VotingClassifier(estimators=[('rfc', rfc), ('knn', knn), ('lr', lr), ('svc', svc)], voting='hard')
 
     # Create pipelines as needed for scaling data
 
@@ -251,8 +316,11 @@ def train_classifier(X, y):
     # Create the RFE object and compute a cross-validated score.
     lr_model = LogisticRegression(max_iter=1000, C=0.01)
 
+    X_best_features = X
+    best_features = X.columns
+    """
     # The "accuracy" scoring is proportional to the number of correct classifications
-    rfecv = RFECV(estimator=lr, step=1, scoring='accuracy')
+    rfecv = RFECV(estimator=lr_model, step=1, scoring='accuracy')
     rfecv.fit(X, y)
     features = X.columns
     ranks = rfecv.ranking_
@@ -263,11 +331,12 @@ def train_classifier(X, y):
     X_best_features = X[best_features]
     print("Best Features: ")
     print(best_features)
+    """
 
     # Using best features, fit the model
-    ensemble_clf.fit(X_best_features, y)
+    lr_model.fit(X_best_features, y)
 
-    return ensemble_clf, best_features
+    return lr_model, best_features
 
 
 
@@ -278,15 +347,41 @@ X_train, y_train = munge_data(train_data)
 
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 
+best_columns = get_best_features(X_train, y_train)
+print("Best Features: " + str(best_columns))
+
+clf = train_ensemble_classifier(X_train, y_train)#train_titanic_tree(X_train, y_train)
+y_pred = clf.predict(X_train)
+# returns statistics
+print('Misclassified train samples: %d' % (y_train != y_pred).sum())
+print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
+
+# Now try test data
+testfile = os.getcwd() + '\\Titanic\\test.csv'
+test_data = pd.read_csv(testfile)
+X_test, y_test = munge_data(test_data)
+X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
+
+y_pred = clf.predict(X_test)
+y_pred = pd.DataFrame(y_pred)
+y_pred.columns = ['Survived']
+
+final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
+final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
+
+# Archive of code not being used but I want to remember how to do
+
 # How to return average age by each Title
 #master = X_train.loc[(~pd.isnull(X_train['Age']))] # & (X_train['Title'] == 'Col')
 #mean_by_group = master.groupby('Title').mean()
 #print(mean_by_group['Age'])
 
+"""
+# Using Cross Validation Example
 # Create train / test split
-X_train_sub, X_test, y_train_sub, y_test = train_test_split(X_train, y_train, test_size=0.5)
+X_train_sub, X_test, y_train_sub, y_test = train_test_split(X_train, y_train, test_size=0.1)
 # train classifier
-clf, best_features = train_classifier(X_train_sub, y_train_sub)#train_titanic_tree(X_train, y_train)
+clf, best_features = train_classifier2(X_train_sub, y_train_sub)#train_titanic_tree(X_train, y_train)
 X_train_best = X_train[best_features]
 X_train_sub = X_train_sub[best_features]
 X_test = X_test[best_features]
@@ -305,24 +400,10 @@ print('Accuracy of CV set: %.2f' % accuracy_score(y_test, y_pred_cv))
 
 # Retrain whole set
 # train classifier
-clf, best_features = train_classifier(X_train, y_train)#train_titanic_tree(X_train, y_train)
+clf, best_features = train_classifier2(X_train, y_train)#train_titanic_tree(X_train, y_train)
 X_train = X_train[best_features]
 y_pred = clf.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-
-
-# Now try test data
-testfile = os.getcwd() + '\\Titanic\\test.csv'
-test_data = pd.read_csv(testfile)
-X_test, y_test = munge_data(test_data)
-X_test = X_test[best_features]
-X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
-
-y_pred = clf.predict(X_test)
-y_pred = pd.DataFrame(y_pred)
-y_pred.columns = ['Survived']
-
-final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
-final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
+"""
