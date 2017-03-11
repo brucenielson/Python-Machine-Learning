@@ -15,7 +15,12 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
 # from importlib import reload
+from sklearn.feature_selection import RFECV
 
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import VotingClassifier
 
 # Start log file
 # logfile=os.getcwd()+'\\titanic.log'
@@ -74,7 +79,7 @@ def munge_data(data):
     X['TicketPre'] = le.transform(X['TicketPre'])
     """
 
-    # Old way
+    # One Hot Encoding way
     cols_to_transform = ['Pclass', 'Sex', 'Embarked'] #, 'Title', 'Deck', 'TicketPre']
     X = pd.get_dummies(X, columns = cols_to_transform )
     if not ('Embarked_NA' in X):
@@ -196,7 +201,6 @@ def fix_missing_values(X, column_name):
 
 
 
-from sklearn.feature_selection import RFECV
 def train_titanic_tree(X, y):
     # Find best features to trai on
     # Create the RFE object and compute a cross-validated score.
@@ -225,6 +229,48 @@ def train_titanic_tree(X, y):
     #return forest
 
 
+def train_classifier(X, y):
+    # Create comprehensive pipeline of:
+    # Decision Tree, Random Forest, LogisticRegression, KNN, SVC
+    #dtc = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
+    rfc = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
+    knn = KNeighborsClassifier(n_neighbors=5, p=2, metric='minkowski')
+    lr = LogisticRegression(max_iter=1000, C=0.1)
+    svc = SVC(max_iter=1000, probability=True)
+    ensemble_clf = VotingClassifier(estimators=[('rfc', rfc), ('knn', knn), ('lr', lr), ('svc', svc)], voting='hard')
+
+    # Create pipelines as needed for scaling data
+
+    # Grid Search p. 185-186 in Python Machine Learning
+    #param_range = [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
+    #param_grid = [{'C': param_range}]
+
+    # LogisticRegression using One Hot Encoded Data
+
+    # Try recursive feature elimination first
+    # Create the RFE object and compute a cross-validated score.
+    lr_model = LogisticRegression(max_iter=1000, C=0.01)
+
+    # The "accuracy" scoring is proportional to the number of correct classifications
+    rfecv = RFECV(estimator=lr, step=1, scoring='accuracy')
+    rfecv.fit(X, y)
+    features = X.columns
+    ranks = rfecv.ranking_
+    best_features = []
+    for i in range(0, len(features)):
+        if ranks[i] == 1:
+            best_features.append(features[i])
+    X_best_features = X[best_features]
+    print("Best Features: ")
+    print(best_features)
+
+    # Using best features, fit the model
+    ensemble_clf.fit(X_best_features, y)
+
+    return ensemble_clf, best_features
+
+
+
 # Read in training data
 trainfile = os.getcwd() + '\\Titanic\\train.csv'
 train_data = pd.read_csv(trainfile)
@@ -237,24 +283,44 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 #mean_by_group = master.groupby('Title').mean()
 #print(mean_by_group['Age'])
 
-tree, best_features = train_titanic_tree(X_train, y_train)
-X_train = X_train[best_features]
-y_pred = tree.predict(X_train)
+# Create train / test split
+X_train_sub, X_test, y_train_sub, y_test = train_test_split(X_train, y_train, test_size=0.5)
+# train classifier
+clf, best_features = train_classifier(X_train_sub, y_train_sub)#train_titanic_tree(X_train, y_train)
+X_train_best = X_train[best_features]
+X_train_sub = X_train_sub[best_features]
+X_test = X_test[best_features]
+y_pred_train = clf.predict(X_train_sub)
+y_pred_cv = clf.predict(X_test)
 # change X_test to match X_train shape
 
 # returns statistics
+print('Misclassified train samples: %d' % (y_train_sub != y_pred_train).sum())
+print('Accuracy of train set: %.2f' % accuracy_score(y_train_sub, y_pred_train))
+
+# returns statistics
+print('Misclassified cross validation samples: %d' % (y_test != y_pred_cv).sum())
+print('Accuracy of CV set: %.2f' % accuracy_score(y_test, y_pred_cv))
+#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
+
+# Retrain whole set
+# train classifier
+clf, best_features = train_classifier(X_train, y_train)#train_titanic_tree(X_train, y_train)
+X_train = X_train[best_features]
+y_pred = clf.predict(X_train)
+# returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
+
 
 # Now try test data
 testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 X_test, y_test = munge_data(test_data)
 X_test = X_test[best_features]
-#X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
+X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
-y_pred = tree.predict(X_test)
+y_pred = clf.predict(X_test)
 y_pred = pd.DataFrame(y_pred)
 y_pred.columns = ['Survived']
 
