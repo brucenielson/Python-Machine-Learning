@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import pickle
 import os
 import logging as log
 import time
@@ -23,13 +24,16 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import VotingClassifier
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
 
+
+
+
 # Start log file
 # logfile=os.getcwd()+'\\titanic.log'
 # log.basicConfig(filename=logfile,level=log.INFO)
 # log.info("Starting Titanic Training on " + str(time.strftime("%c")))
 
 
-def munge_data(data):
+def munge_data(data, additional_data=None):
     # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
     X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in data:
@@ -37,28 +41,42 @@ def munge_data(data):
     else:
         y = None
 
+    # Were we also passed the Test set for one hot encoding?
+    if additional_data is not None:
+        X_additional = additional_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
+        # Combine both sets for cleansing
+        X_all = pd.concat([X, X_additional])
+    else:
+        X_all = X
+
     # Out of name and cabin, create title and deck
     # For name we just want "Master", "Mr", "Miss", "Mrs" etc
     # For cabin we want just the deck letter
-    X['Title'] = X.apply(lambda x: name_to_title(x['Name']), axis=1)
-    X['Deck'] = X.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
-    X['Adj Age'] = X.apply(lambda x: x['Age'] if ~np.isnan(x['Age']) else fix_age(x['Title']), axis=1)
-    X['Embarked'] = X.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
-    X['TicketPre'] = get_ticket_prefix(X['Ticket'])
+    X_all['Title'] = X_all.apply(lambda x: name_to_title(x['Name']), axis=1)
+    X_all['Deck'] = X_all.apply(lambda x: cabin_to_deck(x['Cabin']), axis=1)
+    # Impute missing ages based on title
+    X_all['Adj Age'] = X_all.apply(lambda x: x['Age'] if ~np.isnan(x['Age']) else fix_age(x['Title']), axis=1)
+    # Grab just the prefix for the ticket as I have no idea what to do with the rest of it
+    X_all['TicketPre'] = get_ticket_prefix(X_all['Ticket'])
+    # Set NA for any missing embarked
+    X_all['Embarked'] = X_all.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
+
     # Now Drop Name and Cabin because we no longer need them
-    X = X.drop('Name', axis=1)
-    X = X.drop('Cabin', axis=1)
-    X = X.drop('Age', axis=1)
-    X = X.drop('Ticket', axis=1)
+    X_all = X_all.drop('Name', axis=1)
+    X_all = X_all.drop('Cabin', axis=1)
+    X_all = X_all.drop('Age', axis=1)
+    X_all = X_all.drop('Ticket', axis=1)
+
 
     # Temp drops to try regression
-    X = X.drop('Title', axis=1)
+    #X = X.drop('Title', axis=1)
     #X = X.drop('Embarked', axis=1)
-    X = X.drop('TicketPre', axis=1)
-    X = X.drop('Deck', axis=1)
+    #X = X.drop('TicketPre', axis=1)
+    #X = X.drop('Deck', axis=1)
     # Temp add new features for regression
-    X['Age2'] = X['Adj Age']**2
-    X['Fare2'] = X['Fare']**2
+    X_all['Age2'] = X_all['Adj Age']**2
+    X_all['Fare2'] = X_all['Fare']**2
+
 
     """
     # Label Encoder way
@@ -81,10 +99,13 @@ def munge_data(data):
     """
 
     # One Hot Encoding way
-    cols_to_transform = ['Pclass', 'Sex', 'Embarked'] #, 'Title', 'Deck', 'TicketPre']
-    X = pd.get_dummies(X, columns = cols_to_transform )
-    if not ('Embarked_NA' in X):
-        X['Embarked_NA'] = 0
+    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre']
+    # First create columns by one hot encoding data and additional data (which will contain train and test data)
+    X_all = pd.get_dummies(X_all, columns = cols_to_transform )
+    # Now get rid of the additional test data and go back to just training set
+    X = X_all[0:len(X)]
+    #if not ('Embarked_NA' in X):
+    #    X['Embarked_NA'] = 0
     #print(X)
 
     # Fix using Imputer -- fill in with mean
@@ -110,7 +131,7 @@ def munge_data(data):
     #X = X.drop('Parch', axis=1) #165
     #X = X.drop('Title', axis=1) #168
 
-    # Scale
+    # Scale and center
     col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
     features = X[col_names]
     scaler = StandardScaler().fit(features.values)
@@ -119,7 +140,7 @@ def munge_data(data):
     #print(X)
 
     # Force order of columns
-    X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
+    #X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
 
     return X, y
 
@@ -191,16 +212,6 @@ def cabin_to_deck(cabin):
 
 
 
-"""
-def fix_missing_values(X, column_name):
-    # Old way I created a separate minor feature that the column was missing than set it to -1
-    X['Has '+ column_name] = X.apply(lambda x: ~np.isnan(x[column_name]), axis=1)
-    X[column_name] = X[column_name].fillna(-1.0)
-    # But now, I'm going to fill in the mean value if it's missing using the imputer, so this is no longer used
-    return X
-"""
-
-
 
 def get_best_features(X, y):
     tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns)/2)
@@ -247,55 +258,104 @@ def rank_features(X, rankings):
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV
 from sklearn.naive_bayes import GaussianNB
-def train_ensemble_classifier(X, y):
+def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1]):
 
-    # Create Pipeline for LogisticRegression using Recursive Feature Elimination
-    # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
-    lr = LogisticRegression()
-    rfecv = RFECV(estimator=lr, step=1, scoring='accuracy', cv=10)
-    params = [('rfecv', rfecv), ('lr', lr) ]
-    pipe_lr = Pipeline(params)
-    C_range = 10. ** np.arange(-2, 2)
-    #penalty_options = ['l1', 'l2']
-    param_grid = dict(pipelr__lr__C = C_range) #, lr__penalty = penalty_options)
+    # Logistic Regression
+    basic_lr = LogisticRegression()
 
-    """
-    # Create Pipeline for SVC
-    linear_svc = SVC(probability=True, kernel='linear')
-    rfecv = RFECV(estimator=linear_svc, step=1, scoring='accuracy', cv=10)
-    params = [('rfecv', rfecv), ('svc', linear_svc) ]
-    pipe_svc = Pipeline(params)
-    C_range = 10. ** np.arange(-2, 2)
-    param_grid.update(dict(pipesvc__svc__C = C_range))
-    """
+    # Are we preforming recursive feature elimination?
+    if (recursive_felim == True):
+        # Create Pipeline for LogisticRegression using Recursive Feature Elimination
+        # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
+        rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=10)
+        params = [('rfecv', rfecv), ('lr', basic_lr) ]
+        lr = Pipeline(params)
+    else:
+        # otherwise don't use a pipeline or logistic regression
+        lr = basic_lr
 
-    # Grid search kernel SVCs
-    svc = SVC(probability=True, kernel='poly')
-    C_range = 10. ** np.arange(-2, 2)
-    #kernel_options = ['poly', 'rbf', 'sigmoid']
-    param_grid.update(dict(svc__C=C_range)) #, svc__kernel = kernel_options))
+    # Are we doing a grid search this time (for logistic regression)?
+    param_grid = None
+    if (grid_search == True):
+        C_range = 10. ** np.arange(-2, 2)
+        penalty_options = ['l1', 'l2']
+        param_grid = dict(lr__lr__C = C_range, lr__lr__penalty = penalty_options)
+
+
+    # Kernel SVC
+    basic_svc = SVC(probability=True)
+
+    # Are we preforming recursive feature elimination?
+    if (recursive_felim == True):
+        rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=10)
+        params = [('rfecv', rfecv), ('svc', basic_svc)]
+        svc = Pipeline(params)
+    else:
+        svc = basic_svc
+
+    # Are we doing a grid search this time (for SVC)?
+    if (grid_search == True):
+        # Grid search kernel SVCs
+        svc = SVC(probability=True)
+        C_range = 10. ** np.arange(-2, 2)
+        kernel_options = ['poly', 'rbf', 'sigmoid']
+        if param_grid == None:
+            param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
+        else:
+            param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
+
+    print(param_grid)
 
     # Create KNearestNeighbor model
     knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
+
     # Create RandomForest model
     rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+
     # Naive Bayes
     nb = GaussianNB()
 
     # Create majority vote ensemble classifier
-    ensemble_clf = VotingClassifier(estimators=[('pipelr', pipe_lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=[1,1,0,2,1])
+    ensemble_clf = VotingClassifier(estimators=[('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=weights)
 
-    gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
-    # Do grid search
-    model = gs.fit(X, y)
+    # Are we doing a grid search this time?
+    if (grid_search == True):
+        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
+        # Do grid search
+        model = gs.fit(X, y)
+        # Print out results of grid search
+        print("Best Cross Validation Score: " + str(gs.best_score_))
+        print("Best Parameters: " + str(gs.best_params_))
+        # Save results of grid search for later use
+        try:
+            os.remove(os.path.dirname(__file__)+"\\testdata.txt")
+        finally:
+            f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
 
-    print("Best Cross Validation Score: " + str(gs.best_score_))
-    print("Best Parameters: " + str(gs.best_params_))
+    else:
+        model = ensemble_clf
 
-    # Run it
+    # Train final model
     model.fit(X, y)
-
     return model
+
+
+
+
+def save_best_parameters(best_params, file_name='bestparams.txt'):
+    try:
+        os.remove(os.path.dirname(__file__)+"\\"+file_name)
+    finally:
+        f = open(os.path.dirname(__file__)+"\\"+file_name, 'wb') # w for write, b for binary
+    pickle.dump(best_params, f)
+
+
+def load_best_parameters(best_params, file_name='bestparams.txt'):
+    f = open(os.path.dirname(__file__) + "\\" + file_name, "rb")
+    data = pickle.load(f)
+    f.close()
+    return data
+
 
 
 def train_classifier(X, y):
@@ -347,14 +407,21 @@ def train_classifier(X, y):
 # Read in training data
 trainfile = os.getcwd() + '\\Titanic\\train.csv'
 train_data = pd.read_csv(trainfile)
-X_train, y_train = munge_data(train_data)
+# Grab Test data now so that we can build a proper one hot encoded data set
+# Test data often has options not in training data, so we have to review both together
+# If we want to one hot encoded things correctly
+testfile = os.getcwd() + '\\Titanic\\test.csv'
+test_data = pd.read_csv(testfile)
+
+# Now munge the train data, but include test data so we get consistent one hot encoding
+X_train, y_train = munge_data(train_data, additional_data = test_data)
 
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 
 best_columns = get_best_features(X_train, y_train)
 print("Best Features: " + str(best_columns))
 
-clf = train_ensemble_classifier(X_train, y_train)#train_titanic_tree(X_train, y_train)
+clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 2, 1], grid_search=True, recursive_felim=True)#train_titanic_tree(X_train, y_train)
 y_pred = clf.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
@@ -367,9 +434,7 @@ print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 #print('CV accuracy: #.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
 # Now try test data
-testfile = os.getcwd() + '\\Titanic\\test.csv'
-test_data = pd.read_csv(testfile)
-X_test, y_test = munge_data(test_data)
+X_test, y_test = munge_data(test_data, additional_data=train_data)
 X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 y_pred = clf.predict(X_test)

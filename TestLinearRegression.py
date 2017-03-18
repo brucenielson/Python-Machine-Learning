@@ -13,7 +13,6 @@ def get_answers():
     data = pickle.load(f, encoding='bytes')
     f.close()
     return data
-    return ""
 
 answers = get_answers()
 
