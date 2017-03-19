@@ -290,7 +290,7 @@ def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, 
         if (grid_search == True):
             basic_svc = SVC(probability=True)
         else:
-            basic_svc = SVC(probability=True, kernel='linear')
+            basic_svc = SVC(probability=True, kernel='poly')
 
         # Are we preforming recursive feature elimination?
         if (recursive_felim == True):
@@ -337,7 +337,8 @@ def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, 
     # estimators = [('lr', lr), ('svc', svc), ('knn', knn), ('rfc', rfc)]
     # print(estimators)
     # print(weights)
-
+    #print([('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ])
+    #print(estimators)
     # Create majority vote ensemble classifier
     ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights)
 
@@ -358,6 +359,89 @@ def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, 
     model.fit(X, y)
     return model
 
+
+"""
+def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1]):
+
+    # Logistic Regression
+    basic_lr = LogisticRegression()
+
+    # Are we preforming recursive feature elimination?
+    if (recursive_felim == True):
+        # Create Pipeline for LogisticRegression using Recursive Feature Elimination
+        # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
+        rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=10)
+        params = [('rfecv', rfecv), ('lr', basic_lr) ]
+        lr = Pipeline(params)
+    else:
+        # otherwise don't use a pipeline or logistic regression
+        lr = basic_lr
+
+    # Are we doing a grid search this time (for logistic regression)?
+    param_grid = None
+    if (grid_search == True):
+        C_range = 10. ** np.arange(-2, 2)
+        penalty_options = ['l1', 'l2']
+        param_grid = dict(lr__lr__C = C_range, lr__lr__penalty = penalty_options)
+
+
+    # Kernel SVC
+    basic_svc = SVC(probability=True)
+
+    # Are we preforming recursive feature elimination?
+    if (recursive_felim == True):
+        rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=10)
+        params = [('rfecv', rfecv), ('svc', basic_svc)]
+        svc = Pipeline(params)
+    else:
+        svc = basic_svc
+
+    # Are we doing a grid search this time (for SVC)?
+    if (grid_search == True):
+        # Grid search kernel SVCs
+        svc = SVC(probability=True)
+        C_range = 10. ** np.arange(-2, 2)
+        kernel_options = ['poly', 'rbf', 'sigmoid']
+        if param_grid == None:
+            param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
+        else:
+            param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
+
+    print(param_grid)
+
+    # Create KNearestNeighbor model
+    knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
+
+    # Create RandomForest model
+    rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+
+    # Naive Bayes
+    nb = GaussianNB()
+
+    # Create majority vote ensemble classifier
+    ensemble_clf = VotingClassifier(estimators=[('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=weights)
+
+    # Are we doing a grid search this time?
+    if (grid_search == True):
+        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
+        # Do grid search
+        model = gs.fit(X, y)
+        # Print out results of grid search
+        print("Best Cross Validation Score: " + str(gs.best_score_))
+        print("Best Parameters: " + str(gs.best_params_))
+        # Save results of grid search for later use
+        try:
+            os.remove(os.path.dirname(__file__)+"\\testdata.txt")
+        finally:
+            f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
+
+    else:
+        model = ensemble_clf
+
+    # Train final model
+    model.fit(X, y)
+    return model
+"""
 
 
 
