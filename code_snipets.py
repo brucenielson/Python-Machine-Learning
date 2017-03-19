@@ -10,3 +10,35 @@ def fix_missing_values(X, column_name):
     return X
 """
 
+"""
+# How do pipelines with an RFECV and grid search too
+    if weights[1] != 0:
+        # Kernel SVC
+        if (grid_search == True):
+            basic_svc = SVC(probability=True)
+        else:
+            basic_svc = SVC(probability=True, kernel='linear')
+
+        # Are we preforming recursive feature elimination?
+        if (recursive_felim == True):
+            rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=cv)
+            params = [('rfecv', rfecv), ('svc', basic_svc)]
+            svc = Pipeline(params)
+        else:
+            svc = basic_svc
+
+        # Are we doing a grid search this time (for SVC)?
+        if (grid_search == True):
+            # Grid search kernel SVCs
+            svc = SVC(probability=True)
+            C_range = 10. ** np.arange(-2, 2)
+            kernel_options = ['poly'] #['poly', 'rbf', 'sigmoid']
+            if param_grid == None:
+                param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
+            else:
+                param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
+        estimators.append(('SVC', svc))
+
+    print ("Parameter Grid for Grid Search: ")
+    print(param_grid)
+"""

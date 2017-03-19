@@ -23,7 +23,9 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import VotingClassifier
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
-
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.naive_bayes import GaussianNB
 
 
 
@@ -234,7 +236,7 @@ def get_best_features(X, y):
     rfecv = RFECV(estimator=model, step=1, scoring='accuracy')
     rfecv.fit(X, y)
     features = X.columns
-    ranks = rfecv.ranking_
+    ranks = rfecv.support_
     best_lr = rank_features(X, ranks)
 
     best_features = list(set(best_tree) & set(best_lr))
@@ -249,89 +251,106 @@ def rank_features(X, rankings):
     ranks = rankings
     best_features = []
     for i in range(0, len(features)):
-        if ranks[i] == 1:
+        if ranks[i] == True:
             best_features.append(features[i])
     return best_features
 
 
+def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1], cv=3):
+    # weights = [lr, svc, knn, rfc, nb]
+    estimators = []
 
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV
-from sklearn.naive_bayes import GaussianNB
-def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1]):
+    if weights[0] != 0:
+        # Logistic Regression
+        basic_lr = LogisticRegression()
 
-    # Logistic Regression
-    basic_lr = LogisticRegression()
-
-    # Are we preforming recursive feature elimination?
-    if (recursive_felim == True):
-        # Create Pipeline for LogisticRegression using Recursive Feature Elimination
-        # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
-        rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=10)
-        params = [('rfecv', rfecv), ('lr', basic_lr) ]
-        lr = Pipeline(params)
-    else:
-        # otherwise don't use a pipeline or logistic regression
-        lr = basic_lr
-
-    # Are we doing a grid search this time (for logistic regression)?
-    param_grid = None
-    if (grid_search == True):
-        C_range = 10. ** np.arange(-2, 2)
-        penalty_options = ['l1', 'l2']
-        param_grid = dict(lr__lr__C = C_range, lr__lr__penalty = penalty_options)
-
-
-    # Kernel SVC
-    basic_svc = SVC(probability=True)
-
-    # Are we preforming recursive feature elimination?
-    if (recursive_felim == True):
-        rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=10)
-        params = [('rfecv', rfecv), ('svc', basic_svc)]
-        svc = Pipeline(params)
-    else:
-        svc = basic_svc
-
-    # Are we doing a grid search this time (for SVC)?
-    if (grid_search == True):
-        # Grid search kernel SVCs
-        svc = SVC(probability=True)
-        C_range = 10. ** np.arange(-2, 2)
-        kernel_options = ['poly', 'rbf', 'sigmoid']
-        if param_grid == None:
-            param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
+        # Are we preforming recursive feature elimination?
+        if (recursive_felim == True):
+            # Create Pipeline for LogisticRegression using Recursive Feature Elimination
+            # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
+            rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=cv)
+            params = [('rfecv', rfecv), ('lr', basic_lr) ]
+            lr = Pipeline(params)
         else:
-            param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
+            # otherwise don't use a pipeline or logistic regression
+            lr = basic_lr
 
+        # Are we doing a grid search this time (for logistic regression)?
+        param_grid = None
+        if (grid_search == True):
+            C_range = 10. ** np.arange(-2, 2)
+            #penalty_options = ['l1', 'l2']
+            param_grid = dict(lr__C = C_range) #, lr__penalty = penalty_options)
+
+        estimators.append(('lr', lr))
+
+
+    if weights[1] != 0:
+        # Kernel SVC
+        if (grid_search == True):
+            basic_svc = SVC(probability=True)
+        else:
+            basic_svc = SVC(probability=True, kernel='linear')
+
+        # Are we preforming recursive feature elimination?
+        if (recursive_felim == True):
+            rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=cv)
+            params = [('rfecv', rfecv), ('svc', basic_svc)]
+            svc = Pipeline(params)
+        else:
+            svc = basic_svc
+
+        # Are we doing a grid search this time (for SVC)?
+        if (grid_search == True):
+            # Grid search kernel SVCs
+            svc = SVC(probability=True)
+            C_range = 10. ** np.arange(-2, 2)
+            kernel_options = ['poly'] #['poly', 'rbf', 'sigmoid']
+            if param_grid == None:
+                param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
+            else:
+                param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
+        estimators.append(('SVC', svc))
+
+    print ("Parameter Grid for Grid Search: ")
     print(param_grid)
 
-    # Create KNearestNeighbor model
-    knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
+    if weights[2] != 0:
+        # Create KNearestNeighbor model
+        knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
+        estimators.append(('knn', knn))
 
-    # Create RandomForest model
-    rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+    if weights[3] != 0:
+        # Create RandomForest model
+        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+        estimators.append(('rfc', rfc))
 
-    # Naive Bayes
-    nb = GaussianNB()
+    if weights[4] != 0:
+        # Naive Bayes
+        nb = GaussianNB()
+        estimators.append(('nb', nb))
+
+    # Adjust weights to remove 0s
+    while 0 in weights: weights.remove(0)
+
+    # estimators = [('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc)]
+    # estimators = [('lr', lr), ('svc', svc), ('knn', knn), ('rfc', rfc)]
+    # print(estimators)
+    # print(weights)
 
     # Create majority vote ensemble classifier
-    ensemble_clf = VotingClassifier(estimators=[('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=weights)
+    ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights)
 
     # Are we doing a grid search this time?
     if (grid_search == True):
-        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
+        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=cv)
         # Do grid search
         model = gs.fit(X, y)
         # Print out results of grid search
         print("Best Cross Validation Score: " + str(gs.best_score_))
         print("Best Parameters: " + str(gs.best_params_))
         # Save results of grid search for later use
-        try:
-            os.remove(os.path.dirname(__file__)+"\\testdata.txt")
-        finally:
-            f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
-
+        save_best_parameters(gs.best_params)
     else:
         model = ensemble_clf
 
@@ -421,7 +440,7 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 best_columns = get_best_features(X_train, y_train)
 print("Best Features: " + str(best_columns))
 
-clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 2, 1], grid_search=True, recursive_felim=True)#train_titanic_tree(X_train, y_train)
+clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 2, 0], grid_search=False, recursive_felim=False)
 y_pred = clf.predict(X_train)
 # returns statistics
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
