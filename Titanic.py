@@ -413,11 +413,10 @@ y_pred = clf.predict(X_train)
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 
-# Oops, cross validation has to run the whole thing multiple times!
 # Try Kfold Cross Validation and get a more realistic score
-#scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
-#print('CV accuracy scores: %s' % scores)
-#print('CV accuracy: #.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
+print('CV accuracy scores: %s' % scores)
+print('CV accuracy: #.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
 # Now predict using Test Data
 y_pred = clf.predict(X_test)
