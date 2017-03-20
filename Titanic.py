@@ -35,21 +35,21 @@ from sklearn.naive_bayes import GaussianNB
 # log.info("Starting Titanic Training on " + str(time.strftime("%c")))
 
 
-def munge_data(data, additional_data=None):
+def munge_data(train_data, test_data=None):
     # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
-    X = data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
-    if 'Survived' in data:
-        y = data['Survived']
+    X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
+    if 'Survived' in train_data:
+        y_train = train_data['Survived']
     else:
-        y = None
+        y_train = None
 
     # Were we also passed the Test set for one hot encoding?
-    if additional_data is not None:
-        X_additional = additional_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
+    if test_data is not None:
+        X_test = test_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
         # Combine both sets for cleansing
-        X_all = pd.concat([X, X_additional])
+        X_all = pd.concat([X_train, X_test])
     else:
-        X_all = X
+        X_all = X_train
 
     # Out of name and cabin, create title and deck
     # For name we just want "Master", "Mr", "Miss", "Mrs" etc
@@ -104,16 +104,14 @@ def munge_data(data, additional_data=None):
     cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre']
     # First create columns by one hot encoding data and additional data (which will contain train and test data)
     X_all = pd.get_dummies(X_all, columns = cols_to_transform )
-    # Now get rid of the additional test data and go back to just training set
-    X = X_all[0:len(X)]
     #if not ('Embarked_NA' in X):
     #    X['Embarked_NA'] = 0
     #print(X)
 
     # Fix using Imputer -- fill in with mean
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
-    X_imputed = imp.fit_transform(X)
-    X = pd.DataFrame(X_imputed, columns=X.columns)
+    X_imputed = imp.fit_transform(X_all)
+    X_all = pd.DataFrame(X_imputed, columns=X_all.columns)
 
     #X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
     # Old way
@@ -135,16 +133,21 @@ def munge_data(data, additional_data=None):
 
     # Scale and center
     col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
-    features = X[col_names]
+    features = X_all[col_names]
     scaler = StandardScaler().fit(features.values)
     features = scaler.transform(features.values)
-    X[col_names] = features
+    X_all[col_names] = features
     #print(X)
+
+    # Now split train and test apart again
+    X_train = X_all[0:len(X_train)]
+    X_test = X_all[len(X_train):len(X_all)]
+
 
     # Force order of columns
     #X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
 
-    return X, y
+    return X_train, y_train, X_test
 
 
 
@@ -215,14 +218,15 @@ def cabin_to_deck(cabin):
 
 
 
-def get_best_features(X, y):
+def get_best_features(X, y, feature_type="intersection", cv=3, decision_tree_features=10):
+    orig_features = X.columns
     tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns)/2)
     tree.fit(X, y)
 
     # Find best features to train on
     importances = tree.feature_importances_
     indices = np.argsort(importances)[::-1]
-    indices = indices[0:10]
+    indices = indices[0:decision_tree_features]
     #std = np.std(tree.feature_importances_, axis=0)
     # Get 10 best features for Tree
     best_tree = []
@@ -230,18 +234,36 @@ def get_best_features(X, y):
         best_tree.append(X.columns[f])
 
     # classifications
-    model = LogisticRegression(max_iter=1000, C=0.01)
+    model = LogisticRegression()
     # Create the RFE object and compute a cross-validated score.
     # The "accuracy" scoring is proportional to the number of correct
-    rfecv = RFECV(estimator=model, step=1, scoring='accuracy')
+    rfecv = RFECV(estimator=model, step=1, scoring='accuracy', cv=cv)
     rfecv.fit(X, y)
-    features = X.columns
-    ranks = rfecv.support_
-    best_lr = rank_features(X, ranks)
+    ranks = rfecv.ranking_
+    best_rec = rank_features(X, ranks)
 
-    best_features = list(set(best_tree) & set(best_lr))
+    best_features = list(set(best_tree) & set(best_rec))
 
-    return best_features
+    print("Best Features Using Recursive Feature Elimination:")
+    print(str(len(best_rec)) + " out of " + str(len(orig_features)) + " features")
+    print(best_rec)
+    print("Best Features Using Decision Tree (Top "+str(decision_tree_features)+"):")
+    print(str(len(best_tree)) + " out of " + str(len(orig_features)) + " features")
+    print(best_tree)
+    print("Best Features Common to Both:")
+    print(str(len(best_features)) + " out of " + str(len(orig_features)) + " features")
+    print(best_features)
+
+
+    if feature_type == "intersection":
+        return best_features
+    elif feature_type == "decision tree":
+        return best_tree
+    elif feature_type == "recursive":
+        return best_rec
+    else:
+        return best_features, best_tree, best_rec
+        #raise Exception("Bad Parameter for feature_type")
 
 
 
@@ -251,69 +273,75 @@ def rank_features(X, rankings):
     ranks = rankings
     best_features = []
     for i in range(0, len(features)):
-        if ranks[i] == True:
+        if ranks[i] == 1:
             best_features.append(features[i])
     return best_features
 
 
-def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1], cv=3):
+def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=False, weights = [1,1,1,1,1], cv=3, persist_name="bestparam"):
     # weights = [lr, svc, knn, rfc, nb]
     estimators = []
+    orig_features = X.columns
+    # Do we want to load past grid search parameters
+    # Note: there is no easy way to save off recursive feature elimination with passing a list out, which I don't want to do
+    if use_persisted_values == True:
+        gs_best_params = load_best_parameters()
 
     if weights[0] != 0:
         # Logistic Regression
-        basic_lr = LogisticRegression()
-
-        # Are we preforming recursive feature elimination?
-        if (recursive_felim == True):
-            # Create Pipeline for LogisticRegression using Recursive Feature Elimination
-            # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
-            rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=cv)
-            params = [('rfecv', rfecv), ('lr', basic_lr) ]
-            lr = Pipeline(params)
-        else:
-            # otherwise don't use a pipeline or logistic regression
-            lr = basic_lr
+        lr = LogisticRegression()
 
         # Are we doing a grid search this time (for logistic regression)?
-        param_grid = None
         if (grid_search == True):
-            C_range = 10. ** np.arange(-2, 2)
-            #penalty_options = ['l1', 'l2']
-            param_grid = dict(lr__C = C_range) #, lr__penalty = penalty_options)
+            C_range = 10. ** np.arange(-4, 4)
+            penalty_options = ['l1', 'l2']
+            param_grid = dict(C = C_range, penalty = penalty_options)
+            # Do grid search
+            gs = GridSearchCV(estimator=lr, param_grid=param_grid, scoring='accuracy', cv=cv)
+            # Do grid search
+            gs.fit(X, y)
+            lr = LogisticRegression(C=gs.best_params_['C'], penalty=gs.best_params_['penalty'])
+            # Print out results of grid search
+            print("")
+            print("Parameter Grid for Grid Search on Logistic Regression: ")
+            print(param_grid)
+            print("")
+            print("Logistic Regression Grid Search Results:")
+            print("LR: Best Cross Validation Score: " + str(gs.best_score_))
+            print("LR: Best Parameters: " + str(gs.best_params_))
+            # Save results of grid search for later use
+            save_best_parameters(gs.best_params_, file_name=persist_name+"_lr_gs")
 
         estimators.append(('lr', lr))
 
 
     if weights[1] != 0:
         # Kernel SVC
-        if (grid_search == True):
-            basic_svc = SVC(probability=True)
-        else:
-            basic_svc = SVC(probability=True, kernel='poly')
-
-        # Are we preforming recursive feature elimination?
-        if (recursive_felim == True):
-            rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=cv)
-            params = [('rfecv', rfecv), ('svc', basic_svc)]
-            svc = Pipeline(params)
-        else:
-            svc = basic_svc
+        svc = SVC(probability=True, kernel='poly')
 
         # Are we doing a grid search this time (for SVC)?
         if (grid_search == True):
             # Grid search kernel SVCs
-            svc = SVC(probability=True)
-            C_range = 10. ** np.arange(-2, 2)
-            kernel_options = ['poly'] #['poly', 'rbf', 'sigmoid']
-            if param_grid == None:
-                param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
-            else:
-                param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
-        estimators.append(('SVC', svc))
+            C_range = 10. ** np.arange(-4, 4)
+            kernel_options = ['poly', 'rbf', 'sigmoid']
+            param_grid = dict(C=C_range, kernel = kernel_options)
+            # Do grid search
+            gs = GridSearchCV(estimator=svc, param_grid=param_grid, scoring='accuracy', cv=cv)
+            # Do grid search
+            gs.fit(X, y)
+            svc = SVC(probability=True, kernel=gs.best_params_['kernel'], C=gs.best_params_['C'])
+            # Print out results of grid search
+            print("")
+            print("Parameter Grid for Grid Search on SVC: ")
+            print(param_grid)
+            print("")
+            print("SVC Grid Search Results:")
+            print("SVC: Best Cross Validation Score: " + str(gs.best_score_))
+            print("SVC: Best Parameters: " + str(gs.best_params_))
+            # Save results of grid search for later use
+            save_best_parameters(gs.best_params_, file_name=persist_name+"_svc_gs")
 
-    print ("Parameter Grid for Grid Search: ")
-    print(param_grid)
+        estimators.append(('svc', svc))
 
     if weights[2] != 0:
         # Create KNearestNeighbor model
@@ -322,7 +350,7 @@ def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, 
 
     if weights[3] != 0:
         # Create RandomForest model
-        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
+        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=5) #len(X.columns)/2)
         estimators.append(('rfc', rfc))
 
     if weights[4] != 0:
@@ -332,178 +360,34 @@ def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, 
 
     # Adjust weights to remove 0s
     while 0 in weights: weights.remove(0)
-
-    # estimators = [('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc)]
-    # estimators = [('lr', lr), ('svc', svc), ('knn', knn), ('rfc', rfc)]
-    # print(estimators)
-    # print(weights)
-    #print([('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ])
-    #print(estimators)
+    print('Estimators: ' + str([item[0] for item in estimators]))
     # Create majority vote ensemble classifier
     ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights)
 
-    # Are we doing a grid search this time?
-    if (grid_search == True):
-        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=cv)
-        # Do grid search
-        model = gs.fit(X, y)
-        # Print out results of grid search
-        print("Best Cross Validation Score: " + str(gs.best_score_))
-        print("Best Parameters: " + str(gs.best_params_))
-        # Save results of grid search for later use
-        save_best_parameters(gs.best_params)
-    else:
-        model = ensemble_clf
-
     # Train final model
-    model.fit(X, y)
-    return model
-
-
-"""
-def train_ensemble_classifier(X, y, grid_search=False, recursive_felim = False, weights = [1,1,1,1,1]):
-
-    # Logistic Regression
-    basic_lr = LogisticRegression()
-
-    # Are we preforming recursive feature elimination?
-    if (recursive_felim == True):
-        # Create Pipeline for LogisticRegression using Recursive Feature Elimination
-        # Note: This is how you set Parameters directly: pipe_lr.set_params(lr__C=0.01, lr__max_iter=1000)
-        rfecv = RFECV(estimator=basic_lr, step=1, scoring='accuracy', cv=10)
-        params = [('rfecv', rfecv), ('lr', basic_lr) ]
-        lr = Pipeline(params)
-    else:
-        # otherwise don't use a pipeline or logistic regression
-        lr = basic_lr
-
-    # Are we doing a grid search this time (for logistic regression)?
-    param_grid = None
-    if (grid_search == True):
-        C_range = 10. ** np.arange(-2, 2)
-        penalty_options = ['l1', 'l2']
-        param_grid = dict(lr__lr__C = C_range, lr__lr__penalty = penalty_options)
-
-
-    # Kernel SVC
-    basic_svc = SVC(probability=True)
-
-    # Are we preforming recursive feature elimination?
-    if (recursive_felim == True):
-        rfecv = RFECV(estimator=basic_svc, step=1, scoring='accuracy', cv=10)
-        params = [('rfecv', rfecv), ('svc', basic_svc)]
-        svc = Pipeline(params)
-    else:
-        svc = basic_svc
-
-    # Are we doing a grid search this time (for SVC)?
-    if (grid_search == True):
-        # Grid search kernel SVCs
-        svc = SVC(probability=True)
-        C_range = 10. ** np.arange(-2, 2)
-        kernel_options = ['poly', 'rbf', 'sigmoid']
-        if param_grid == None:
-            param_grid = dict(svc__C=C_range, svc__kernel = kernel_options)
-        else:
-            param_grid.update(dict(svc__C=C_range, svc__kernel = kernel_options))
-
-    print(param_grid)
-
-    # Create KNearestNeighbor model
-    knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
-
-    # Create RandomForest model
-    rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=len(X.columns)/2)
-
-    # Naive Bayes
-    nb = GaussianNB()
-
-    # Create majority vote ensemble classifier
-    ensemble_clf = VotingClassifier(estimators=[('lr', lr), ('knn', knn), ('nb', nb), ('rfc', rfc), ('svc', svc) ], voting='soft', weights=weights)
-
-    # Are we doing a grid search this time?
-    if (grid_search == True):
-        gs = GridSearchCV(estimator=ensemble_clf, param_grid=param_grid, scoring='accuracy', cv=10)
-        # Do grid search
-        model = gs.fit(X, y)
-        # Print out results of grid search
-        print("Best Cross Validation Score: " + str(gs.best_score_))
-        print("Best Parameters: " + str(gs.best_params_))
-        # Save results of grid search for later use
-        try:
-            os.remove(os.path.dirname(__file__)+"\\testdata.txt")
-        finally:
-            f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
-
-    else:
-        model = ensemble_clf
-
-    # Train final model
-    model.fit(X, y)
-    return model
-"""
+    ensemble_clf.fit(X, y)
+    return ensemble_clf
 
 
 
-def save_best_parameters(best_params, file_name='bestparams.txt'):
+
+def save_best_parameters(best_params, file_name='bestparams'):
+    best_params = str(best_params)
     try:
         os.remove(os.path.dirname(__file__)+"\\"+file_name)
+    except:
+        pass
     finally:
         f = open(os.path.dirname(__file__)+"\\"+file_name, 'wb') # w for write, b for binary
     pickle.dump(best_params, f)
+    f.close()
 
 
-def load_best_parameters(best_params, file_name='bestparams.txt'):
+def load_best_parameters(file_name='bestparams'):
     f = open(os.path.dirname(__file__) + "\\" + file_name, "rb")
     data = pickle.load(f)
     f.close()
     return data
-
-
-
-def train_classifier(X, y):
-    # Create comprehensive pipeline of:
-    # Decision Tree, Random Forest, LogisticRegression, KNN, SVC
-    #dtc = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns))
-    #rfc = RandomForestClassifier(criterion='entropy', n_estimators=100, max_depth=len(X.columns))
-    #knn = KNeighborsClassifier(n_neighbors=5, p=2, metric='minkowski')
-    #lr = LogisticRegression(max_iter=1000, C=0.1)
-    #svc = SVC(max_iter=1000, probability=True)
-    #ensemble_clf = VotingClassifier(estimators=[('rfc', rfc), ('knn', knn), ('lr', lr), ('svc', svc)], voting='hard')
-
-    # Create pipelines as needed for scaling data
-
-    # Grid Search p. 185-186 in Python Machine Learning
-    #param_range = [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
-    #param_grid = [{'C': param_range}]
-
-    # LogisticRegression using One Hot Encoded Data
-
-    # Try recursive feature elimination first
-    # Create the RFE object and compute a cross-validated score.
-    lr_model = LogisticRegression(max_iter=1000, C=0.01)
-
-    X_best_features = X
-    best_features = X.columns
-    """
-    # The "accuracy" scoring is proportional to the number of correct classifications
-    rfecv = RFECV(estimator=lr_model, step=1, scoring='accuracy')
-    rfecv.fit(X, y)
-    features = X.columns
-    ranks = rfecv.ranking_
-    best_features = []
-    for i in range(0, len(features)):
-        if ranks[i] == 1:
-            best_features.append(features[i])
-    X_best_features = X[best_features]
-    print("Best Features: ")
-    print(best_features)
-    """
-
-    # Using best features, fit the model
-    lr_model.fit(X_best_features, y)
-
-    return lr_model, best_features
 
 
 
@@ -517,70 +401,42 @@ testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 
 # Now munge the train data, but include test data so we get consistent one hot encoding
-X_train, y_train = munge_data(train_data, additional_data = test_data)
+X_train, y_train, X_test = munge_data(train_data, test_data=test_data)
 
+# Save out training data for bug fixing
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
+# Save out transformed Test Data for bug fixing
+X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
-best_columns = get_best_features(X_train, y_train)
-print("Best Features: " + str(best_columns))
 
-clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 2, 0], grid_search=False, recursive_felim=False)
+best_features = get_best_features(X_train, y_train, feature_type="recursive", cv=100)
+# Use only best features
+X_train = X_train[best_features]
+X_test = X_test[best_features]
+
+# weights = [lr, svc, knn, rfc, nb]
+clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 0, 0], grid_search=True, \
+                                cv=10, persist_name="TitanicParams")
+
 y_pred = clf.predict(X_train)
 # returns statistics
+print("")
+print("Results of Predict:")
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 
+# Oops, cross validation has to run the whole thing multiple times!
 # Try Kfold Cross Validation and get a more realistic score
 scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
+print("")
+print("Results of Cross Validation:")
 print('CV accuracy scores: %s' % scores)
-print('CV accuracy: #.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
-# Now try test data
-X_test, y_test = munge_data(test_data, additional_data=train_data)
-X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
-
+# Now predict using Test Data
 y_pred = clf.predict(X_test)
 y_pred = pd.DataFrame(y_pred)
 y_pred.columns = ['Survived']
 
 final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
 final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
-
-# Archive of code not being used but I want to remember how to do
-
-# How to return average age by each Title
-#master = X_train.loc[(~pd.isnull(X_train['Age']))] # & (X_train['Title'] == 'Col')
-#mean_by_group = master.groupby('Title').mean()
-#print(mean_by_group['Age'])
-
-"""
-# Using Cross Validation Example
-# Create train / test split
-X_train_sub, X_test, y_train_sub, y_test = train_test_split(X_train, y_train, test_size=0.1)
-# train classifier
-clf, best_features = train_classifier2(X_train_sub, y_train_sub)#train_titanic_tree(X_train, y_train)
-X_train_best = X_train[best_features]
-X_train_sub = X_train_sub[best_features]
-X_test = X_test[best_features]
-y_pred_train = clf.predict(X_train_sub)
-y_pred_cv = clf.predict(X_test)
-# change X_test to match X_train shape
-
-# returns statistics
-print('Misclassified train samples: %d' % (y_train_sub != y_pred_train).sum())
-print('Accuracy of train set: %.2f' % accuracy_score(y_train_sub, y_pred_train))
-
-# returns statistics
-print('Misclassified cross validation samples: %d' % (y_test != y_pred_cv).sum())
-print('Accuracy of CV set: %.2f' % accuracy_score(y_test, y_pred_cv))
-#export_graphviz(tree, out_file=os.getcwd() + '\\Titanic\\TrainTree.dot', feature_names=X_train.columns.values, class_names=["Died", "Survived"])
-
-# Retrain whole set
-# train classifier
-clf, best_features = train_classifier2(X_train, y_train)#train_titanic_tree(X_train, y_train)
-X_train = X_train[best_features]
-y_pred = clf.predict(X_train)
-# returns statistics
-print('Misclassified train samples: %d' % (y_train != y_pred).sum())
-print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-"""
