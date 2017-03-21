@@ -62,12 +62,14 @@ def munge_data(train_data, test_data=None):
     X_all['TicketPre'] = get_ticket_prefix(X_all['Ticket'])
     # Set NA for any missing embarked
     X_all['Embarked'] = X_all.apply(lambda x: x['Embarked'] if (pd.isnull(x['Embarked']) == False) else "NA", axis=1)
+    X_all['Cabin'] = X_all.apply(lambda x: x['Cabin'] if (pd.isnull(x['Cabin']) == False) else "NA", axis=1)
+    X_all['Ticket'] = X_all.apply(lambda x: x['Ticket'] if (pd.isnull(x['Ticket']) == False) else "NA", axis=1)
 
     # Now Drop Name and Cabin because we no longer need them
     X_all = X_all.drop('Name', axis=1)
-    X_all = X_all.drop('Cabin', axis=1)
+    #X_all = X_all.drop('Cabin', axis=1)
     X_all = X_all.drop('Age', axis=1)
-    X_all = X_all.drop('Ticket', axis=1)
+    #X_all = X_all.drop('Ticket', axis=1)
 
 
     # Temp drops to try regression
@@ -75,9 +77,6 @@ def munge_data(train_data, test_data=None):
     #X = X.drop('Embarked', axis=1)
     #X = X.drop('TicketPre', axis=1)
     #X = X.drop('Deck', axis=1)
-    # Temp add new features for regression
-    X_all['Age2'] = X_all['Adj Age']**2
-    X_all['Fare2'] = X_all['Fare']**2
 
 
     """
@@ -101,17 +100,22 @@ def munge_data(train_data, test_data=None):
     """
 
     # One Hot Encoding way
-    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre']
+    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
     # First create columns by one hot encoding data and additional data (which will contain train and test data)
     X_all = pd.get_dummies(X_all, columns = cols_to_transform )
     #if not ('Embarked_NA' in X):
     #    X['Embarked_NA'] = 0
     #print(X)
 
-    # Fix using Imputer -- fill in with mean
+    # Fix using Imputer -- fill in with mean for columns with continuous values
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
-    X_imputed = imp.fit_transform(X_all)
-    X_all = pd.DataFrame(X_imputed, columns=X_all.columns)
+    X_all[['Fare', 'Adj Age']] = imp.fit_transform(X_all[['Fare', 'Adj Age']])
+    #X_all = pd.DataFrame(X_imputed, columns=X_all.columns)
+
+    # Temp add new features for regression
+    X_all['Age2'] = X_all['Adj Age']**2
+    X_all['Fare2'] = X_all['Fare']**2
+
 
     #X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
     # Old way
@@ -146,6 +150,10 @@ def munge_data(train_data, test_data=None):
 
     # Force order of columns
     #X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
+
+    print("# of Columns:")
+    print(len(X_train.columns))
+    #print(X_train)
 
     return X_train, y_train, X_test
 
@@ -218,53 +226,59 @@ def cabin_to_deck(cabin):
 
 
 
-def get_best_features(X, y, feature_type="intersection", cv=3, decision_tree_features=10):
+def get_best_features(X, y, logistic_regression = False, random_forest = False, decision_tree = False, cv=3, decision_tree_features=10):
+
     orig_features = X.columns
-    tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns)/2)
-    tree.fit(X, y)
+    dict_of_bests = {}
 
-    # Find best features to train on
-    importances = tree.feature_importances_
-    indices = np.argsort(importances)[::-1]
-    indices = indices[0:decision_tree_features]
-    #std = np.std(tree.feature_importances_, axis=0)
-    # Get 10 best features for Tree
-    best_tree = []
-    for f in indices:
-        best_tree.append(X.columns[f])
+    # What are the top features used by a decision tree?
+    if decision_tree == True:
+        tree = DecisionTreeClassifier(criterion='entropy', max_depth=len(X.columns)/2)
+        tree.fit(X, y)
 
-    # classifications
-    model = LogisticRegression()
-    # Create the RFE object and compute a cross-validated score.
-    # The "accuracy" scoring is proportional to the number of correct
-    rfecv = RFECV(estimator=model, step=1, scoring='accuracy', cv=cv)
-    rfecv.fit(X, y)
-    ranks = rfecv.ranking_
-    best_rec = rank_features(X, ranks)
+        # Find best features to train on
+        importances = tree.feature_importances_
+        indices = np.argsort(importances)[::-1]
+        indices = indices[0:decision_tree_features]
+        #std = np.std(tree.feature_importances_, axis=0)
+        # Get 10 best features for Tree
+        best_tree = []
+        for f in indices:
+            best_tree.append(X.columns[f])
+        dict_of_bests['Decision Tree'] = best_tree
 
-    best_features = list(set(best_tree) & set(best_rec))
+    # Using Recursive feature elimination, what are the top features used by Logistic Regression?
+    if logistic_regression == True:
+        lr = LogisticRegression()
+        # Create the RFE object and compute a cross-validated score.
+        # The "accuracy" scoring is proportional to the number of correct
+        rfecv = RFECV(estimator=lr, step=1, scoring='accuracy', cv=cv)
+        rfecv.fit(X, y)
+        ranks = rfecv.ranking_
+        best_rec = rank_features(X, ranks)
+        dict_of_bests['Logistic Regression'] = best_rec
 
-    print("Best Features Using Recursive Feature Elimination:")
-    print(str(len(best_rec)) + " out of " + str(len(orig_features)) + " features")
-    print(best_rec)
-    print("Best Features Using Decision Tree (Top "+str(decision_tree_features)+"):")
-    print(str(len(best_tree)) + " out of " + str(len(orig_features)) + " features")
-    print(best_tree)
-    print("Best Features Common to Both:")
-    print(str(len(best_features)) + " out of " + str(len(orig_features)) + " features")
-    print(best_features)
+    # Using Recursive feature elimination, what are the top features used by Random Forest?
+    if random_forest == True:
+        rfc = RandomForestClassifier(criterion='entropy', n_estimators=10, max_depth=5, max_features=0.07)
+        rfecv = RFECV(estimator=rfc, step=1, scoring='accuracy', cv=cv)
+        rfecv.fit(X, y)
+        ranks = rfecv.ranking_
+        best_rf = rank_features(X, ranks)
+        dict_of_bests['Random Forest'] =  best_rf
 
+    list_of_bests = [[k, v] for k, v in dict_of_bests.items()]
 
-    if feature_type == "intersection":
-        return best_features
-    elif feature_type == "decision tree":
-        return best_tree
-    elif feature_type == "recursive":
-        return best_rec
-    else:
-        return best_features, best_tree, best_rec
-        #raise Exception("Bad Parameter for feature_type")
+    best_features = set.intersection(*map(set,[flist[1] for flist in list_of_bests]))
+    list_of_bests.append(('Intersection', best_features))
 
+    for item in list_of_bests:
+        print("")
+        print("Best Features Using " + item[0] + ":")
+        print(str(len(item[1])) + " out of " + str(len(orig_features)) + " features")
+        print(item[1])
+
+    return dict_of_bests
 
 
 def rank_features(X, rankings):
@@ -317,7 +331,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
     if weights[1] != 0:
         # Kernel SVC
-        svc = SVC(probability=True, kernel='poly')
+        svc = SVC(probability=True)
 
         # Are we doing a grid search this time (for SVC)?
         if (grid_search == True):
@@ -350,7 +364,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
     if weights[3] != 0:
         # Create RandomForest model
-        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=5) #len(X.columns)/2)
+        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=5, max_features=0.1) # len(X.columns)/2)
         estimators.append(('rfc', rfc))
 
     if weights[4] != 0:
@@ -408,14 +422,18 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 # Save out transformed Test Data for bug fixing
 X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
-
-best_features = get_best_features(X_train, y_train, feature_type="recursive", cv=100)
+"""
+best_features = get_best_features(X_train, y_train, random_forest=True, cv=10)
 # Use only best features
-X_train = X_train[best_features]
-X_test = X_test[best_features]
+X_train = X_train[best_features['Random Forest']]
+X_test = X_test[best_features['Random Forest']]
+"""
+#X_train = X_train[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
+#X_test = X_test[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
+
 
 # weights = [lr, svc, knn, rfc, nb]
-clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 0, 0], grid_search=True, \
+clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False, \
                                 cv=10, persist_name="TitanicParams")
 
 y_pred = clf.predict(X_train)
@@ -430,7 +448,7 @@ print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
 print("")
 print("Results of Cross Validation:")
-print('CV accuracy scores: %s' % scores)
+#print('CV accuracy scores: %s' % scores)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
 # Now predict using Test Data
