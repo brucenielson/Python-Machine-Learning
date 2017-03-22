@@ -1,0 +1,3 @@
+SVC: Best Parameters: {'C': 1000.0, 'kernel': 'rbf'}
+LR: Best Parameters: {'C': 10.0, 'penalty': 'l1'}
+

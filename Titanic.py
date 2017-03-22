@@ -136,7 +136,7 @@ def munge_data(train_data, test_data=None):
     #X = X.drop('Title', axis=1) #168
 
     # Scale and center
-    col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Age2', 'Fare2']
+    col_names = ['Adj Age', 'SibSp', 'Parch', 'Age2', 'Fare', 'Fare2' ]
     features = X_all[col_names]
     scaler = StandardScaler().fit(features.values)
     features = scaler.transform(features.values)
@@ -303,7 +303,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
     if weights[0] != 0:
         # Logistic Regression
-        lr = LogisticRegression()
+        lr = LogisticRegression(C=10, penalty='l1')
 
         # Are we doing a grid search this time (for logistic regression)?
         if (grid_search == True):
@@ -331,7 +331,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
     if weights[1] != 0:
         # Kernel SVC
-        svc = SVC(probability=True)
+        svc = SVC(probability=True, C=1000, kernel='rbf')
 
         # Are we doing a grid search this time (for SVC)?
         if (grid_search == True):
@@ -417,23 +417,26 @@ test_data = pd.read_csv(testfile)
 # Now munge the train data, but include test data so we get consistent one hot encoding
 X_train, y_train, X_test = munge_data(train_data, test_data=test_data)
 
+#X_train = X_train[['Cabin_E58', 'TicketPre_C', 'Ticket_7552', 'Ticket_345764', 'Ticket_364849', 'Cabin_E44', 'Ticket_A/5. 10482', 'Cabin_D33', 'Ticket_347071', 'Ticket_29105', 'Ticket_382649', 'Ticket_PC 17611', 'Ticket_315098', 'Ticket_C 17369', 'Cabin_A10', 'Ticket_113773', 'Ticket_2678', 'Cabin_C95', 'Ticket_13049', 'Ticket_11967', 'TicketPre_STONO', 'Ticket_345779', 'Ticket_PC 17473', 'Ticket_36967', 'Ticket_347470', 'Cabin_C104', 'Ticket_2663', 'Ticket_29106', 'Cabin_C52', 'Ticket_2699', 'Ticket_386525', 'Ticket_113804', 'Ticket_244278', 'Ticket_SOTON/O.Q. 392078', 'Ticket_PC 17483', 'Ticket_A/5. 3337', 'Ticket_3101278', 'Ticket_A/5. 3336', 'Cabin_C124', 'Ticket_113781', 'Ticket_113503', 'Ticket_7546', 'Ticket_STON/O 2. 3101285', 'Ticket_W./C. 6609', 'Cabin_E63', 'Ticket_315084', 'Ticket_11753', 'Deck_NA', 'Ticket_349909', 'Cabin_C106', 'Ticket_A/5 3540', 'Ticket_111426', 'Ticket_19943', 'Ticket_2627', 'Ticket_343095', 'Ticket_250651', 'Ticket_347080', 'Ticket_SW/PP 751', 'Ticket_347077', 'Ticket_13213', 'Ticket_244270', 'Ticket_W./C. 6608', 'Ticket_4138', 'Ticket_PC 17485', 'Ticket_110465', 'Ticket_PC 17558', 'Cabin_C47', 'TicketPre_WEP', 'Cabin_A19', 'Ticket_248698', 'Ticket_7553', 'Cabin_C111', 'Ticket_STON/O2. 3101271', 'Cabin_NA', 'Ticket_237798', 'Ticket_PC 17474', 'Deck_C', 'Cabin_C148', 'Title_Mr', 'Cabin_C49', 'Ticket_111428', 'Ticket_347083', 'Ticket_347085', 'Ticket_SOTON/O.Q. 392087', 'Deck_D', 'Cabin_D6', 'Ticket_237671', 'Ticket_113788', 'Ticket_248747', 'Cabin_A31', 'Ticket_367228', 'Cabin_D48', 'TicketPre_WC', 'Ticket_CA 2144', 'Ticket_347088', 'Ticket_330935', 'Cabin_D45', 'Cabin_E8', 'Ticket_2691', 'Ticket_19947', 'Ticket_113786', 'Ticket_13567', 'Cabin_B86', 'Ticket_113051', 'Ticket_19988', 'Ticket_W./C. 14258', 'Ticket_364846', 'Ticket_113760', 'Ticket_364850', 'Ticket_STON/O 2. 3101286', 'Ticket_382651', 'Cabin_D19', 'Cabin_B20', 'Ticket_S.O./P.P. 3', 'Ticket_11668', 'Ticket_113055', 'Ticket_SOTON/OQ 392089', 'TicketPre_SOPP', 'Deck_G', 'Cabin_C92', 'Ticket_16988', 'Ticket_349240', 'Title_Master', 'Ticket_11774', 'Ticket_2668', 'Ticket_363291', 'Ticket_SC/PARIS 2146', 'Ticket_4135', 'Ticket_STON/O2. 3101290', 'Ticket_STON/O 2. 3101289', 'Ticket_312991', 'Title_NA', 'Ticket_111320', 'Ticket_PC 17595', 'Ticket_SC/Paris 2163', 'Cabin_C22 C26', 'Cabin_A20', 'Pclass_1', 'Ticket_4134', 'Ticket_5727', 'TicketPre_PP', 'Sex_male', 'Ticket_PP 9549', 'Cabin_D26', 'Ticket_2908', 'Ticket_3101281', 'Ticket_365226', 'Ticket_2665', 'Ticket_343120', 'Ticket_S.O.C. 14879', 'Ticket_PC 17476', 'Ticket_113806', 'Cabin_B41', 'Ticket_3101295', 'Ticket_CA. 2314', 'Ticket_17453', 'Ticket_PC 17593', 'Cabin_A6', 'Ticket_347081', 'Ticket_345773', 'Ticket_11751', 'Ticket_17463', 'Ticket_350034', 'Ticket_2651', 'Embarked_S', 'Pclass_2', 'Title_Rev', 'Cabin_A26', 'Cabin_D30', 'Ticket_349237', 'Ticket_347742', 'Ticket_2620', 'Ticket_113501', 'Ticket_364516', 'Ticket_364848', 'Ticket_19952', 'Ticket_111427', 'Cabin_C126', 'Ticket_367230', 'Ticket_345763', 'Cabin_E46', 'Ticket_239865', 'Ticket_110564', 'TicketPre_LINE', 'Ticket_112379', 'Ticket_1601', 'Ticket_27042', 'Cabin_B58 B60', 'Ticket_4133', 'Title_Mrs', 'Ticket_350417', 'Ticket_19996', 'Ticket_347054', 'Ticket_345774', 'Ticket_330909', 'Ticket_2677', 'Cabin_E25', 'Ticket_C.A. 2315', 'Ticket_367226', 'TicketPre_FCC', 'Ticket_35281', 'Cabin_C82', 'Sex_female', 'Ticket_C.A. 2673', 'Cabin_C93', 'Ticket_4136', 'Ticket_2653', 'Ticket_347073', 'Ticket_LINE', 'Ticket_345572', 'Cabin_G6', 'Ticket_382652', 'Ticket_315096', 'Ticket_PC 17758', 'Ticket_349245', 'Ticket_2661', 'Ticket_239853', 'Cabin_E10', 'Cabin_C70', 'Cabin_D35', 'Ticket_C.A. 37671', 'Ticket_347082', 'Cabin_D', 'Ticket_347087', 'Cabin_E17', 'Ticket_244252', 'Cabin_A23', 'Cabin_A32', 'Ticket_347089', 'Ticket_PC 17572', 'Ticket_370129', 'SibSp', 'Ticket_112277', 'Ticket_4137', 'Ticket_S.W./PP 752', 'Cabin_E24', 'Ticket_695', 'Ticket_350407', 'Pclass_3', 'Ticket_244373', 'Cabin_D56', 'Ticket_350406', 'Ticket_17474', 'Ticket_349236', 'Ticket_113794', 'Ticket_PC 17475', 'Ticket_220845', 'Ticket_350046', 'Ticket_2666', 'Adj Age', 'Cabin_B49', 'Ticket_350043', 'Ticket_7598', 'Ticket_STON/O 2. 3101269', 'Ticket_65306', 'TicketPre_SWPP', 'Ticket_W.E.P. 5734', 'Ticket_113050', 'Cabin_B102', 'Cabin_B38', 'Deck_E', 'Cabin_B96 B98', 'Ticket_111369', 'Ticket_2689', 'Cabin_E12', 'Ticket_113767', 'Ticket_STON/O 2. 3101288', 'Ticket_3101265', 'Cabin_D46', 'Cabin_E77']]
+#X_test = X_test[['Cabin_E58', 'TicketPre_C', 'Ticket_7552', 'Ticket_345764', 'Ticket_364849', 'Cabin_E44', 'Ticket_A/5. 10482', 'Cabin_D33', 'Ticket_347071', 'Ticket_29105', 'Ticket_382649', 'Ticket_PC 17611', 'Ticket_315098', 'Ticket_C 17369', 'Cabin_A10', 'Ticket_113773', 'Ticket_2678', 'Cabin_C95', 'Ticket_13049', 'Ticket_11967', 'TicketPre_STONO', 'Ticket_345779', 'Ticket_PC 17473', 'Ticket_36967', 'Ticket_347470', 'Cabin_C104', 'Ticket_2663', 'Ticket_29106', 'Cabin_C52', 'Ticket_2699', 'Ticket_386525', 'Ticket_113804', 'Ticket_244278', 'Ticket_SOTON/O.Q. 392078', 'Ticket_PC 17483', 'Ticket_A/5. 3337', 'Ticket_3101278', 'Ticket_A/5. 3336', 'Cabin_C124', 'Ticket_113781', 'Ticket_113503', 'Ticket_7546', 'Ticket_STON/O 2. 3101285', 'Ticket_W./C. 6609', 'Cabin_E63', 'Ticket_315084', 'Ticket_11753', 'Deck_NA', 'Ticket_349909', 'Cabin_C106', 'Ticket_A/5 3540', 'Ticket_111426', 'Ticket_19943', 'Ticket_2627', 'Ticket_343095', 'Ticket_250651', 'Ticket_347080', 'Ticket_SW/PP 751', 'Ticket_347077', 'Ticket_13213', 'Ticket_244270', 'Ticket_W./C. 6608', 'Ticket_4138', 'Ticket_PC 17485', 'Ticket_110465', 'Ticket_PC 17558', 'Cabin_C47', 'TicketPre_WEP', 'Cabin_A19', 'Ticket_248698', 'Ticket_7553', 'Cabin_C111', 'Ticket_STON/O2. 3101271', 'Cabin_NA', 'Ticket_237798', 'Ticket_PC 17474', 'Deck_C', 'Cabin_C148', 'Title_Mr', 'Cabin_C49', 'Ticket_111428', 'Ticket_347083', 'Ticket_347085', 'Ticket_SOTON/O.Q. 392087', 'Deck_D', 'Cabin_D6', 'Ticket_237671', 'Ticket_113788', 'Ticket_248747', 'Cabin_A31', 'Ticket_367228', 'Cabin_D48', 'TicketPre_WC', 'Ticket_CA 2144', 'Ticket_347088', 'Ticket_330935', 'Cabin_D45', 'Cabin_E8', 'Ticket_2691', 'Ticket_19947', 'Ticket_113786', 'Ticket_13567', 'Cabin_B86', 'Ticket_113051', 'Ticket_19988', 'Ticket_W./C. 14258', 'Ticket_364846', 'Ticket_113760', 'Ticket_364850', 'Ticket_STON/O 2. 3101286', 'Ticket_382651', 'Cabin_D19', 'Cabin_B20', 'Ticket_S.O./P.P. 3', 'Ticket_11668', 'Ticket_113055', 'Ticket_SOTON/OQ 392089', 'TicketPre_SOPP', 'Deck_G', 'Cabin_C92', 'Ticket_16988', 'Ticket_349240', 'Title_Master', 'Ticket_11774', 'Ticket_2668', 'Ticket_363291', 'Ticket_SC/PARIS 2146', 'Ticket_4135', 'Ticket_STON/O2. 3101290', 'Ticket_STON/O 2. 3101289', 'Ticket_312991', 'Title_NA', 'Ticket_111320', 'Ticket_PC 17595', 'Ticket_SC/Paris 2163', 'Cabin_C22 C26', 'Cabin_A20', 'Pclass_1', 'Ticket_4134', 'Ticket_5727', 'TicketPre_PP', 'Sex_male', 'Ticket_PP 9549', 'Cabin_D26', 'Ticket_2908', 'Ticket_3101281', 'Ticket_365226', 'Ticket_2665', 'Ticket_343120', 'Ticket_S.O.C. 14879', 'Ticket_PC 17476', 'Ticket_113806', 'Cabin_B41', 'Ticket_3101295', 'Ticket_CA. 2314', 'Ticket_17453', 'Ticket_PC 17593', 'Cabin_A6', 'Ticket_347081', 'Ticket_345773', 'Ticket_11751', 'Ticket_17463', 'Ticket_350034', 'Ticket_2651', 'Embarked_S', 'Pclass_2', 'Title_Rev', 'Cabin_A26', 'Cabin_D30', 'Ticket_349237', 'Ticket_347742', 'Ticket_2620', 'Ticket_113501', 'Ticket_364516', 'Ticket_364848', 'Ticket_19952', 'Ticket_111427', 'Cabin_C126', 'Ticket_367230', 'Ticket_345763', 'Cabin_E46', 'Ticket_239865', 'Ticket_110564', 'TicketPre_LINE', 'Ticket_112379', 'Ticket_1601', 'Ticket_27042', 'Cabin_B58 B60', 'Ticket_4133', 'Title_Mrs', 'Ticket_350417', 'Ticket_19996', 'Ticket_347054', 'Ticket_345774', 'Ticket_330909', 'Ticket_2677', 'Cabin_E25', 'Ticket_C.A. 2315', 'Ticket_367226', 'TicketPre_FCC', 'Ticket_35281', 'Cabin_C82', 'Sex_female', 'Ticket_C.A. 2673', 'Cabin_C93', 'Ticket_4136', 'Ticket_2653', 'Ticket_347073', 'Ticket_LINE', 'Ticket_345572', 'Cabin_G6', 'Ticket_382652', 'Ticket_315096', 'Ticket_PC 17758', 'Ticket_349245', 'Ticket_2661', 'Ticket_239853', 'Cabin_E10', 'Cabin_C70', 'Cabin_D35', 'Ticket_C.A. 37671', 'Ticket_347082', 'Cabin_D', 'Ticket_347087', 'Cabin_E17', 'Ticket_244252', 'Cabin_A23', 'Cabin_A32', 'Ticket_347089', 'Ticket_PC 17572', 'Ticket_370129', 'SibSp', 'Ticket_112277', 'Ticket_4137', 'Ticket_S.W./PP 752', 'Cabin_E24', 'Ticket_695', 'Ticket_350407', 'Pclass_3', 'Ticket_244373', 'Cabin_D56', 'Ticket_350406', 'Ticket_17474', 'Ticket_349236', 'Ticket_113794', 'Ticket_PC 17475', 'Ticket_220845', 'Ticket_350046', 'Ticket_2666', 'Adj Age', 'Cabin_B49', 'Ticket_350043', 'Ticket_7598', 'Ticket_STON/O 2. 3101269', 'Ticket_65306', 'TicketPre_SWPP', 'Ticket_W.E.P. 5734', 'Ticket_113050', 'Cabin_B102', 'Cabin_B38', 'Deck_E', 'Cabin_B96 B98', 'Ticket_111369', 'Ticket_2689', 'Cabin_E12', 'Ticket_113767', 'Ticket_STON/O 2. 3101288', 'Ticket_3101265', 'Cabin_D46', 'Cabin_E77']]
+
 # Save out training data for bug fixing
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 # Save out transformed Test Data for bug fixing
 X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 """
-best_features = get_best_features(X_train, y_train, random_forest=True, cv=10)
+best_features = get_best_features(X_train, y_train, logistic_regression=True, cv=100)
 # Use only best features
-X_train = X_train[best_features['Random Forest']]
-X_test = X_test[best_features['Random Forest']]
+X_train = X_train[best_features['Logistic Regression']]
+X_test = X_test[best_features['Logistic Regression']]
 """
 #X_train = X_train[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
 #X_test = X_test[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
 
 
 # weights = [lr, svc, knn, rfc, nb]
-clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False, \
+clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 0, 0], grid_search=False, \
                                 cv=10, persist_name="TitanicParams")
 
 y_pred = clf.predict(X_train)
