@@ -292,75 +292,94 @@ def rank_features(X, rankings):
     return best_features
 
 
-def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=False, weights = [1,1,1,1,1], cv=3, persist_name="bestparam"):
+
+def do_grid_search(X, y, estimator, parameters, persist_name="bestparams", cv=3):
+    # Do grid search
+    est = estimator()
+    gs = GridSearchCV(estimator=est, param_grid=parameters, scoring='accuracy', cv=cv)
+    # Do grid search
+    gs.fit(X, y)
+    est = estimator(**gs.best_params_)
+    # Print out results of grid search
+    print("")
+    print("Parameter Grid for Grid Search on " + str(type(est).__name__))
+    print(parameters)
+    print("")
+    print("Grid Search Results:")
+    print("Best Cross Validation Score: " + str(gs.best_score_))
+    print("Best Parameters: " + str(gs.best_params_))
+    # Save results of grid search for later use
+    save_best_parameters(gs.best_params_, file_name=persist_name)
+    return est
+
+
+def create_classifier(X, y, clf, name, grid_search, param_grid, use_persisted_values, persist_name):
+    persist_name = persist_name + "_"+name+"_gs"
+    # Are we doing a grid search this time (for logistic regression)?
+    if (grid_search == True):
+        clf = do_grid_search(X, y, clf, param_grid, persist_name)
+    elif use_persisted_values == True:
+        params = load_best_parameters(persist_name)
+        clf = clf(**params)
+        # Print out results of loaded parrameters
+        print("")
+        print("Saved Parameters for " + str(type(clf).__name__) + ": ")
+        print(params)
+    else:
+        if name.lower() == 'svc':
+            clf = clf(probability=True)
+        else:
+            clf = clf()
+
+    return clf
+
+
+
+def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=False, weights = [1,1,1,1,1], cv=3, persist_name="bestparams"):
     # weights = [lr, svc, knn, rfc, nb]
     estimators = []
     orig_features = X.columns
     # Do we want to load past grid search parameters
     # Note: there is no easy way to save off recursive feature elimination with passing a list out, which I don't want to do
-    if use_persisted_values == True:
-        gs_best_params = load_best_parameters()
 
+    # Logistic Regression
     if weights[0] != 0:
-        # Logistic Regression
-        lr = LogisticRegression(C=10, penalty='l1')
+        # Create parameters
+        C_range = 10. ** np.arange(-4, 4)
+        penalty_options = ['l1', 'l2']
+        param_grid = dict(C=C_range, penalty=penalty_options)
+        # Create classifier
+        clf = create_classifier(X, y, LogisticRegression, 'lr', grid_search, param_grid, use_persisted_values, persist_name)
+        # Add to list of estimators
+        estimators.append(('lr', clf))
 
-        # Are we doing a grid search this time (for logistic regression)?
-        if (grid_search == True):
-            C_range = 10. ** np.arange(-4, 4)
-            penalty_options = ['l1', 'l2']
-            param_grid = dict(C = C_range, penalty = penalty_options)
-            # Do grid search
-            gs = GridSearchCV(estimator=lr, param_grid=param_grid, scoring='accuracy', cv=cv)
-            # Do grid search
-            gs.fit(X, y)
-            lr = LogisticRegression(C=gs.best_params_['C'], penalty=gs.best_params_['penalty'])
-            # Print out results of grid search
-            print("")
-            print("Parameter Grid for Grid Search on Logistic Regression: ")
-            print(param_grid)
-            print("")
-            print("Logistic Regression Grid Search Results:")
-            print("LR: Best Cross Validation Score: " + str(gs.best_score_))
-            print("LR: Best Parameters: " + str(gs.best_params_))
-            # Save results of grid search for later use
-            save_best_parameters(gs.best_params_, file_name=persist_name+"_lr_gs")
-
-        estimators.append(('lr', lr))
-
-
+    # Kernel SVC
     if weights[1] != 0:
-        # Kernel SVC
-        svc = SVC(probability=True, C=1000, kernel='rbf')
+        # Create parameters
+        # Grid search kernel SVCs
+        C_range = 10. ** np.arange(-4, 4)
+        kernel_options = ['poly', 'rbf', 'sigmoid']
+        param_grid = dict(C=C_range, kernel=kernel_options, probability=[True])
+        # Create classifier
+        clf = create_classifier(X, y, SVC, 'svc', grid_search, param_grid, use_persisted_values, persist_name)
+        # Add to list of estimators
+        estimators.append(('svc', clf))
 
-        # Are we doing a grid search this time (for SVC)?
-        if (grid_search == True):
-            # Grid search kernel SVCs
-            C_range = 10. ** np.arange(-4, 4)
-            kernel_options = ['poly', 'rbf', 'sigmoid']
-            param_grid = dict(C=C_range, kernel = kernel_options)
-            # Do grid search
-            gs = GridSearchCV(estimator=svc, param_grid=param_grid, scoring='accuracy', cv=cv)
-            # Do grid search
-            gs.fit(X, y)
-            svc = SVC(probability=True, kernel=gs.best_params_['kernel'], C=gs.best_params_['C'])
-            # Print out results of grid search
-            print("")
-            print("Parameter Grid for Grid Search on SVC: ")
-            print(param_grid)
-            print("")
-            print("SVC Grid Search Results:")
-            print("SVC: Best Cross Validation Score: " + str(gs.best_score_))
-            print("SVC: Best Parameters: " + str(gs.best_params_))
-            # Save results of grid search for later use
-            save_best_parameters(gs.best_params_, file_name=persist_name+"_svc_gs")
-
-        estimators.append(('svc', svc))
-
+    # KNN
     if weights[2] != 0:
-        # Create KNearestNeighbor model
-        knn = KNeighborsClassifier(n_neighbors=4, p=2, metric='minkowski')
-        estimators.append(('knn', knn))
+        # Create parameters
+        # Grid search kernel SVCs
+        n_neighbors = np.arange(3, 9)
+        #algorithm = ['ball_tree', 'kd_tree', 'brute']
+        p = [1,2]
+        metric = ['euclidean', 'minkowski'] #, 'manhattan']
+        #weight = ['uniform', 'distance']
+        param_grid = dict(n_neighbors=n_neighbors, p=p, metric=metric) #, weights=weight, algorithm=algorithm)
+        # Create classifier
+        clf = create_classifier(X, y, KNeighborsClassifier, 'knn', grid_search, param_grid, use_persisted_values, persist_name)
+        # Add to list of estimators
+        estimators.append(('knn', clf))
+
 
     if weights[3] != 0:
         # Create RandomForest model
@@ -374,6 +393,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
     # Adjust weights to remove 0s
     while 0 in weights: weights.remove(0)
+    print("")
     print('Estimators: ' + str([item[0] for item in estimators]))
     # Create majority vote ensemble classifier
     ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights)
@@ -386,7 +406,6 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 
 
 def save_best_parameters(best_params, file_name='bestparams'):
-    best_params = str(best_params)
     try:
         os.remove(os.path.dirname(__file__)+"\\"+file_name)
     except:
@@ -398,9 +417,12 @@ def save_best_parameters(best_params, file_name='bestparams'):
 
 
 def load_best_parameters(file_name='bestparams'):
-    f = open(os.path.dirname(__file__) + "\\" + file_name, "rb")
-    data = pickle.load(f)
-    f.close()
+    try:
+        f = open(os.path.dirname(__file__) + "\\" + file_name, "rb")
+        data = pickle.load(f)
+        f.close()
+    except:
+        data = {}
     return data
 
 
@@ -436,8 +458,8 @@ X_test = X_test[best_features['Logistic Regression']]
 
 
 # weights = [lr, svc, knn, rfc, nb]
-clf = train_ensemble_classifier(X_train, y_train, weights = [1, 1, 0, 0, 0], grid_search=False, \
-                                cv=10, persist_name="TitanicParams")
+clf = train_ensemble_classifier(X_train, y_train, weights = [0, 0, 1, 0, 0], grid_search=True, \
+                                cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
 y_pred = clf.predict(X_train)
 # returns statistics
@@ -446,6 +468,7 @@ print("Results of Predict:")
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 
+"""
 # Oops, cross validation has to run the whole thing multiple times!
 # Try Kfold Cross Validation and get a more realistic score
 scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
@@ -453,6 +476,7 @@ print("")
 print("Results of Cross Validation:")
 #print('CV accuracy scores: %s' % scores)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+"""
 
 # Now predict using Test Data
 y_pred = clf.predict(X_test)
