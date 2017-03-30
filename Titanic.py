@@ -1,3 +1,4 @@
+import EnsembleClassifier as classifier
 import pandas as pd
 import numpy as np
 import pickle
@@ -67,8 +68,9 @@ def munge_data(train_data, test_data=None):
 
     # Now Drop Name and Cabin because we no longer need them
     X_all = X_all.drop('Name', axis=1)
-    #X_all = X_all.drop('Cabin', axis=1)
     X_all = X_all.drop('Age', axis=1)
+    # The seemingly less useful ones that really do make a difference but blow out # of columns
+    #X_all = X_all.drop('Cabin', axis=1)
     #X_all = X_all.drop('Ticket', axis=1)
 
 
@@ -320,6 +322,8 @@ def create_classifier(X, y, clf, name, grid_search, param_grid, use_persisted_va
         clf = do_grid_search(X, y, clf, param_grid, persist_name)
     elif use_persisted_values == True:
         params = load_best_parameters(persist_name)
+        if ('n_estimators' in params):
+            params['n_estimators'] = params['n_estimators'] * 10
         clf = clf(**params)
         # Print out results of loaded parrameters
         print("")
@@ -368,24 +372,35 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
     # KNN
     if weights[2] != 0:
         # Create parameters
-        # Grid search kernel SVCs
+        # Grid search KNN
         n_neighbors = np.arange(3, 9)
-        #algorithm = ['ball_tree', 'kd_tree', 'brute']
+        algorithm = ['ball_tree', 'kd_tree', 'brute']
         p = [1,2]
-        metric = ['euclidean', 'minkowski'] #, 'manhattan']
-        #weight = ['uniform', 'distance']
-        param_grid = dict(n_neighbors=n_neighbors, p=p, metric=metric) #, weights=weight, algorithm=algorithm)
+        metric = ['euclidean', 'minkowski', 'manhattan']
+        weight = ['uniform', 'distance']
+        param_grid = dict(n_neighbors=n_neighbors, p=p, metric=metric, weights=weight, algorithm=algorithm)
         # Create classifier
         clf = create_classifier(X, y, KNeighborsClassifier, 'knn', grid_search, param_grid, use_persisted_values, persist_name)
         # Add to list of estimators
         estimators.append(('knn', clf))
 
-
+    # Random Forest
     if weights[3] != 0:
-        # Create RandomForest model
-        rfc = RandomForestClassifier(criterion='entropy', n_estimators=1000, max_depth=5, max_features=0.1) # len(X.columns)/2)
-        estimators.append(('rfc', rfc))
+        # Create parameters
+        # Grid search Random Forest Classifier
+        max_features = ['sqrt', 'log2', 0.01, 0.1, 5, 25]
+        max_depth = [3, 5, 9, 15, 25]
+        criterion = ['gini', 'entropy']
+        min_samples_split = [2, 4, 6]
+        min_samples_leaf = [1, 3, 5, 0.01, 0.1]
+        n_estimators = [100]
+        param_grid = dict(max_features=max_features, max_depth=max_depth, criterion=criterion, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, n_estimators=n_estimators)
+        # Create classifier
+        clf = create_classifier(X, y, RandomForestClassifier, 'rfc', grid_search, param_grid, use_persisted_values, persist_name)
+        # Add to list of estimators
+        estimators.append(('rfc', clf))
 
+    # Naive Bayes
     if weights[4] != 0:
         # Naive Bayes
         nb = GaussianNB()
@@ -458,7 +473,7 @@ X_test = X_test[best_features['Logistic Regression']]
 
 
 # weights = [lr, svc, knn, rfc, nb]
-clf = train_ensemble_classifier(X_train, y_train, weights = [0, 0, 1, 0, 0], grid_search=True, \
+clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False, \
                                 cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
 y_pred = clf.predict(X_train)
@@ -468,7 +483,7 @@ print("Results of Predict:")
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 
-"""
+
 # Oops, cross validation has to run the whole thing multiple times!
 # Try Kfold Cross Validation and get a more realistic score
 scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
@@ -476,7 +491,7 @@ print("")
 print("Results of Cross Validation:")
 #print('CV accuracy scores: %s' % scores)
 print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
-"""
+
 
 # Now predict using Test Data
 y_pred = clf.predict(X_test)
