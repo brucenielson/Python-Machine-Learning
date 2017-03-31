@@ -27,12 +27,12 @@ def get_data(train_data):
 class TestTrain_ensemble_classifier(TestCase):
     def test_train_ensemble_classifier(self):
         # Read in training data
-        trainfile = os.getcwd() + '\\UnitTestTrain.csv'
+        trainfile = os.getcwd() + '\\Data\\UnitTestTrain.csv'
         train_data = pd.read_csv(trainfile)
         # Grab Test data now so that we can build a proper one hot encoded data set
         # Test data often has options not in training data, so we have to review both together
         # If we want to one hot encoded things correctly
-        testfile = os.getcwd() + '\\UnitTestTest.csv'
+        testfile = os.getcwd() + '\\Data\\UnitTestTest.csv'
         test_data = pd.read_csv(testfile)
 
         # Now munge the train data, but include test data so we get consistent one hot encoding

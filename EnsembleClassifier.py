@@ -217,11 +217,11 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
 def save_best_parameters(best_params, file_name='bestparams'):
     # noinspection PyBroadException
     try:
-        os.remove(os.path.dirname(__file__)+"\\"+file_name)
+        os.remove(os.path.dirname(__file__)+"\\Persistence\\"+file_name)
     except:
         pass
     finally:
-        f = open(os.path.dirname(__file__)+"\\"+file_name, 'wb') # w for write, b for binary
+        f = open(os.path.dirname(__file__)+"\\Persistence\\"+file_name, 'wb') # w for write, b for binary
     pickle.dump(best_params, f)
     f.close()
 
@@ -230,7 +230,7 @@ def save_best_parameters(best_params, file_name='bestparams'):
 def load_best_parameters(file_name='bestparams'):
     # noinspection PyBroadException
     try:
-        f = open(os.path.dirname(__file__) + "\\" + file_name, "rb")
+        f = open(os.path.dirname(__file__) + "\\Persistence\\" + file_name, "rb")
         data = pickle.load(f)
         f.close()
     except:

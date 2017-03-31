@@ -9,7 +9,7 @@ def get_answers():
     import pickle
     import os
 
-    f = open(os.path.dirname(__file__)+"\\"+'ex1testdata.txt', "rb")
+    f = open(os.path.dirname(__file__)+"\\Data\\"+'ex1testdata.txt', "rb")
     data = pickle.load(f, encoding='bytes')
     f.close()
     return data

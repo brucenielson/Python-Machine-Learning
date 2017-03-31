@@ -57,8 +57,8 @@ def munge_data(train_data, test_data=None):
     X_all = X_all.drop('Name', axis=1)
     X_all = X_all.drop('Age', axis=1)
     # The seemingly less useful ones that really do make a difference but blow out # of columns
-    X_all = X_all.drop('Cabin', axis=1)
-    X_all = X_all.drop('Ticket', axis=1)
+    #X_all = X_all.drop('Cabin', axis=1)
+    #X_all = X_all.drop('Ticket', axis=1)
 
 
     # Temp drops to try regression
@@ -89,7 +89,7 @@ def munge_data(train_data, test_data=None):
     """
 
     # One Hot Encoding way
-    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre'] #, 'Cabin', 'Ticket']
+    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
     # First create columns by one hot encoding data and additional data (which will contain train and test data)
     X_all = pd.get_dummies(X_all, columns = cols_to_transform )
     #if not ('Embarked_NA' in X):
@@ -238,18 +238,20 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 
+"""
 best_features = classifier.get_best_features(X_train, y_train, logistic_regression=True, cv=100)
 # Use only best features
 X_train = X_train[best_features['Logistic Regression']]
 X_test = X_test[best_features['Logistic Regression']]
+"""
 
 #X_train = X_train[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
 #X_test = X_test[['SibSp', 'Adj Age', 'Pclass_3', 'Sex_female', 'Pclass_3']]
 
 
 # weights = [lr, svc, knn, rfc, nb]
-clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False, \
-                                cv=10, persist_name="TitanicParams", use_persisted_values=False)
+clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False,
+                                cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
 y_pred = clf.predict(X_train)
 # returns statistics

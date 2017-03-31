@@ -169,11 +169,11 @@ def create_answers():
     import os
 
     try:
-        os.remove(os.path.dirname(__file__)+"\\ex1testdata.txt")
+        os.remove(os.path.dirname(__file__)+"\\Data\\ex1testdata.txt")
     except:
         pass
     finally:
-        f = open(os.path.dirname(__file__)+"\\"+'ex1testdata.txt', 'wb') # w for write, b for binary
+        f = open(os.path.dirname(__file__)+"\\Data\\"+'ex1testdata.txt', 'wb') # w for write, b for binary
 
     # Feature normalize
     # X, mu, sigma = featureNormalize(X)
