@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas
 import numpy as np
 import LinearRegression as lr
-# from importlib import reload
+from importlib import reload
 
 
 # from imp import reload
@@ -163,16 +163,17 @@ price_norm = np.copy(price)
 print('Predicted price of a 1650 sq-ft, 3 br house (using normal equations):\n $%f\n' % price)
 
 
-
 # Save off answers from above for unit tests
 def create_answers():
     import pickle
     import os
 
     try:
-        os.remove(os.path.dirname(__file__)+"\\testdata.txt")
+        os.remove(os.path.dirname(__file__)+"\\ex1testdata.txt")
+    except:
+        pass
     finally:
-        f = open(os.path.dirname(__file__)+"\\"+'testdata.txt', 'wb') # w for write, b for binary
+        f = open(os.path.dirname(__file__)+"\\"+'ex1testdata.txt', 'wb') # w for write, b for binary
 
     # Feature normalize
     # X, mu, sigma = featureNormalize(X)
@@ -190,7 +191,9 @@ def create_answers():
     answers['cost'] = cost
 
     pickle.dump(answers, f) #, protocol=pickle.HIGHEST_PROTOCOL
+    f.close()
 
 
+create_answers()
 
 
