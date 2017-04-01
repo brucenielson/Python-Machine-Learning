@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score
 from importlib import reload
 from sklearn.feature_selection import RFECV
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
-from sklearn.linear_model import LinearRegression
+
 
 # Start log file
 # logfile=os.getcwd()+'\\titanic.log'
@@ -24,6 +24,7 @@ from sklearn.linear_model import LinearRegression
 
 
 def munge_data(train_data, test_data=None):
+    # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
     X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in train_data:
         y_train = train_data['Survived']
@@ -60,50 +61,68 @@ def munge_data(train_data, test_data=None):
     #X_all = X_all.drop('Ticket', axis=1)
 
 
+    # Temp drops to try regression
+    #X = X.drop('Title', axis=1)
+    #X = X.drop('Embarked', axis=1)
+    #X = X.drop('TicketPre', axis=1)
+    #X = X.drop('Deck', axis=1)
+
+
+    """
     # Label Encoder way
     le = preprocessing.LabelEncoder()
-    # Label Encode cabin
-    le.fit(X_all.Cabin.unique())
-    X_all['Cabin'] = le.transform(X_all['Cabin'])
     # Label Encode Sex
-    le.fit(X_all.Sex.unique())
-    X_all['Sex'] = le.transform(X_all['Sex'])
+    le.fit(X.Sex.unique())
+    X['Sex'] = le.transform(X['Sex'])
     # Label Encode Title
-    le.fit(X_all.Title.unique())
-    X_all['Title'] = le.transform(X_all['Title'])
+    le.fit(X.Title.unique())
+    X['Title'] = le.transform(X['Title'])
     # Label Encode Deck
-    le.fit(X_all.Deck.unique())
-    X_all['Deck'] = le.transform(X_all['Deck'])
+    le.fit(X.Deck.unique())
+    X['Deck'] = le.transform(X['Deck'])
     # Label Encode Embarked
-    le.fit(X_all.Embarked.unique())
-    X_all['Embarked'] = le.transform(X_all['Embarked'])
+    le.fit(X.Embarked.unique())
+    X['Embarked'] = le.transform(X['Embarked'])
     # Label Encode Ticket Prefix
-    le.fit(X_all.TicketPre.unique())
-    X_all['TicketPre'] = le.transform(X_all['TicketPre'])
-    # Label Encode ticket
-    le.fit(X_all.Ticket.unique())
-    X_all['Ticket'] = le.transform(X_all['Ticket'])
+    le.fit(X.TicketPre.unique())
+    X['TicketPre'] = le.transform(X['TicketPre'])
+    """
 
+    # One Hot Encoding way
+    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
+    # First create columns by one hot encoding data and additional data (which will contain train and test data)
+    X_all = pd.get_dummies(X_all, columns = cols_to_transform )
+    #if not ('Embarked_NA' in X):
+    #    X['Embarked_NA'] = 0
+    #print(X)
 
     # Fix using Imputer -- fill in with mean for columns with continuous values
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
     X_all[['Fare', 'Adj Age']] = imp.fit_transform(X_all[['Fare', 'Adj Age']])
     #X_all = pd.DataFrame(X_imputed, columns=X_all.columns)
 
-    # Save with Cabin and Ticket
-    X_temp = X_all
-
-    # One Hot Encoding way
-    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
-    # First create columns by one hot encoding data and additional data (which will contain train and test data)
-    X_all = pd.get_dummies(X_all, columns = cols_to_transform )
-
-    # Add Ticket back in
-    X_all['Ticket'] = X_temp['Ticket']
-
     # Temp add new features for regression
     X_all['Age2'] = X_all['Adj Age']**2
     X_all['Fare2'] = X_all['Fare']**2
+
+
+    #X['PassengerId'] = X.apply(lambda x: int(x['PassengerId']), axis=1)
+    # Old way
+    #X = fix_missing_values(X, 'Adj Age')
+    #X = fix_missing_values(X, 'Fare')
+
+    # Test one field at a time
+    #X = X.drop('Adj Age', axis=1)
+    #X = X.drop('Pclass', axis=1)
+    #X = X.drop('Fare', axis=1)  # 137
+    #X = X.drop('SibSp', axis=1) #145
+    #X = X.drop('Embarked', axis=1) #150
+
+    # columns to drop with a decision tree
+    #X = X.drop('TicketPre', axis=1) #150
+    #X = X.drop('Deck', axis=1) #165
+    #X = X.drop('Parch', axis=1) #165
+    #X = X.drop('Title', axis=1) #168
 
     # Scale and center
     col_names = ['Adj Age', 'SibSp', 'Parch', 'Age2', 'Fare', 'Fare2' ]
@@ -111,75 +130,21 @@ def munge_data(train_data, test_data=None):
     scaler = StandardScaler().fit(features.values)
     features = scaler.transform(features.values)
     X_all[col_names] = features
-
-    # Select out only the training portion
-    X_temp_train = X_all[0:len(X_train)]
-    #X_temp_train = X_temp_train.drop('Cabin', axis=1)
-    X_temp_train = X_temp_train.drop('Ticket', axis=1)
-    # Make initial guess
-    clf = classifier.train_ensemble_classifier(X_temp_train, y_train, weights=[1, 1, 1, 1, 0], cv=10, persist_name="TitanicParams", use_persisted_values=True)
-
-    # Predict based on train and test together
-    X_temp = X_all
-    #X_temp = X_temp.drop('Cabin', axis=1)
-    X_temp = X_temp.drop('Ticket', axis=1)
-    y_pred_initial = clf.predict(X_temp)
-
-    # Save off predictions
-    X_all['Survival Guess'] = y_pred_initial
-    # Create columns for filling in family survival chance based on prediction for oldest family member
-    X_all['Family Survival Guess'] = -1
-    # Now group familes and predict chances of parent surviving
-    X_all['Family Survival Guess'] = X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x), axis=1)
-    #print(X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x, le2), axis=1))
-    X_all = X_all.drop('Survival Guess', axis=1)
-    X_all = X_all.drop('Family Survival Guess', axis=1)
-    #X_all = X_all.drop('Cabin', axis=1)
-    X_all = X_all.drop('Ticket', axis=1)
-
-
-    # returns statistics
-    y_pred_initial = y_pred_initial[0:len(X_train)]
-    print("")
-    print("Results of Predict - Initial Guess:")
-    print('Misclassified train samples: %d' % (y_train != y_pred_initial).sum())
-    print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred_initial))
-
+    #print(X)
 
     # Now split train and test apart again
     X_train = X_all[0:len(X_train)]
     X_test = X_all[len(X_train):len(X_all)]
 
-    print("")
+
+    # Force order of columns
+    #X = X[['Sex_female', 'Sex_male', 'Pclass_1', 'Pclass_2', 'Pclass_3', 'Adj Age', 'Age2', 'SibSp', 'Parch', 'Fare', 'Fare2', 'Embarked_C', 'Embarked_Q', 'Embarked_S', 'Embarked_NA']]
+
     print("# of Columns:")
     print(len(X_train.columns))
     #print(X_train)
 
     return X_train, y_train, X_test
-
-
-
-def calculate_parent_survival_factor(X, person):
-    parent = get_parent(X, person)
-    if not parent.empty:
-        val = int(parent['Survival Guess'])
-    else:
-        val = 0
-    return val
-
-
-
-def get_parent(X, person):
-    ticket = person['Ticket']
-    family = X.loc[(X['Ticket'] == ticket)]
-    highest_age = -1.0
-    highest_age_person = family.iloc[0]
-    for i, row  in family.iterrows():
-        if row['Adj Age'] > highest_age:
-            highest_age_person = row
-            highest_age = row['Adj Age']
-
-    return highest_age_person
 
 
 
@@ -267,6 +232,11 @@ X_train, y_train, X_test = munge_data(train_data, test_data=test_data)
 #X_train = X_train[['Cabin_E58', 'TicketPre_C', 'Ticket_7552', 'Ticket_345764', 'Ticket_364849', 'Cabin_E44', 'Ticket_A/5. 10482', 'Cabin_D33', 'Ticket_347071', 'Ticket_29105', 'Ticket_382649', 'Ticket_PC 17611', 'Ticket_315098', 'Ticket_C 17369', 'Cabin_A10', 'Ticket_113773', 'Ticket_2678', 'Cabin_C95', 'Ticket_13049', 'Ticket_11967', 'TicketPre_STONO', 'Ticket_345779', 'Ticket_PC 17473', 'Ticket_36967', 'Ticket_347470', 'Cabin_C104', 'Ticket_2663', 'Ticket_29106', 'Cabin_C52', 'Ticket_2699', 'Ticket_386525', 'Ticket_113804', 'Ticket_244278', 'Ticket_SOTON/O.Q. 392078', 'Ticket_PC 17483', 'Ticket_A/5. 3337', 'Ticket_3101278', 'Ticket_A/5. 3336', 'Cabin_C124', 'Ticket_113781', 'Ticket_113503', 'Ticket_7546', 'Ticket_STON/O 2. 3101285', 'Ticket_W./C. 6609', 'Cabin_E63', 'Ticket_315084', 'Ticket_11753', 'Deck_NA', 'Ticket_349909', 'Cabin_C106', 'Ticket_A/5 3540', 'Ticket_111426', 'Ticket_19943', 'Ticket_2627', 'Ticket_343095', 'Ticket_250651', 'Ticket_347080', 'Ticket_SW/PP 751', 'Ticket_347077', 'Ticket_13213', 'Ticket_244270', 'Ticket_W./C. 6608', 'Ticket_4138', 'Ticket_PC 17485', 'Ticket_110465', 'Ticket_PC 17558', 'Cabin_C47', 'TicketPre_WEP', 'Cabin_A19', 'Ticket_248698', 'Ticket_7553', 'Cabin_C111', 'Ticket_STON/O2. 3101271', 'Cabin_NA', 'Ticket_237798', 'Ticket_PC 17474', 'Deck_C', 'Cabin_C148', 'Title_Mr', 'Cabin_C49', 'Ticket_111428', 'Ticket_347083', 'Ticket_347085', 'Ticket_SOTON/O.Q. 392087', 'Deck_D', 'Cabin_D6', 'Ticket_237671', 'Ticket_113788', 'Ticket_248747', 'Cabin_A31', 'Ticket_367228', 'Cabin_D48', 'TicketPre_WC', 'Ticket_CA 2144', 'Ticket_347088', 'Ticket_330935', 'Cabin_D45', 'Cabin_E8', 'Ticket_2691', 'Ticket_19947', 'Ticket_113786', 'Ticket_13567', 'Cabin_B86', 'Ticket_113051', 'Ticket_19988', 'Ticket_W./C. 14258', 'Ticket_364846', 'Ticket_113760', 'Ticket_364850', 'Ticket_STON/O 2. 3101286', 'Ticket_382651', 'Cabin_D19', 'Cabin_B20', 'Ticket_S.O./P.P. 3', 'Ticket_11668', 'Ticket_113055', 'Ticket_SOTON/OQ 392089', 'TicketPre_SOPP', 'Deck_G', 'Cabin_C92', 'Ticket_16988', 'Ticket_349240', 'Title_Master', 'Ticket_11774', 'Ticket_2668', 'Ticket_363291', 'Ticket_SC/PARIS 2146', 'Ticket_4135', 'Ticket_STON/O2. 3101290', 'Ticket_STON/O 2. 3101289', 'Ticket_312991', 'Title_NA', 'Ticket_111320', 'Ticket_PC 17595', 'Ticket_SC/Paris 2163', 'Cabin_C22 C26', 'Cabin_A20', 'Pclass_1', 'Ticket_4134', 'Ticket_5727', 'TicketPre_PP', 'Sex_male', 'Ticket_PP 9549', 'Cabin_D26', 'Ticket_2908', 'Ticket_3101281', 'Ticket_365226', 'Ticket_2665', 'Ticket_343120', 'Ticket_S.O.C. 14879', 'Ticket_PC 17476', 'Ticket_113806', 'Cabin_B41', 'Ticket_3101295', 'Ticket_CA. 2314', 'Ticket_17453', 'Ticket_PC 17593', 'Cabin_A6', 'Ticket_347081', 'Ticket_345773', 'Ticket_11751', 'Ticket_17463', 'Ticket_350034', 'Ticket_2651', 'Embarked_S', 'Pclass_2', 'Title_Rev', 'Cabin_A26', 'Cabin_D30', 'Ticket_349237', 'Ticket_347742', 'Ticket_2620', 'Ticket_113501', 'Ticket_364516', 'Ticket_364848', 'Ticket_19952', 'Ticket_111427', 'Cabin_C126', 'Ticket_367230', 'Ticket_345763', 'Cabin_E46', 'Ticket_239865', 'Ticket_110564', 'TicketPre_LINE', 'Ticket_112379', 'Ticket_1601', 'Ticket_27042', 'Cabin_B58 B60', 'Ticket_4133', 'Title_Mrs', 'Ticket_350417', 'Ticket_19996', 'Ticket_347054', 'Ticket_345774', 'Ticket_330909', 'Ticket_2677', 'Cabin_E25', 'Ticket_C.A. 2315', 'Ticket_367226', 'TicketPre_FCC', 'Ticket_35281', 'Cabin_C82', 'Sex_female', 'Ticket_C.A. 2673', 'Cabin_C93', 'Ticket_4136', 'Ticket_2653', 'Ticket_347073', 'Ticket_LINE', 'Ticket_345572', 'Cabin_G6', 'Ticket_382652', 'Ticket_315096', 'Ticket_PC 17758', 'Ticket_349245', 'Ticket_2661', 'Ticket_239853', 'Cabin_E10', 'Cabin_C70', 'Cabin_D35', 'Ticket_C.A. 37671', 'Ticket_347082', 'Cabin_D', 'Ticket_347087', 'Cabin_E17', 'Ticket_244252', 'Cabin_A23', 'Cabin_A32', 'Ticket_347089', 'Ticket_PC 17572', 'Ticket_370129', 'SibSp', 'Ticket_112277', 'Ticket_4137', 'Ticket_S.W./PP 752', 'Cabin_E24', 'Ticket_695', 'Ticket_350407', 'Pclass_3', 'Ticket_244373', 'Cabin_D56', 'Ticket_350406', 'Ticket_17474', 'Ticket_349236', 'Ticket_113794', 'Ticket_PC 17475', 'Ticket_220845', 'Ticket_350046', 'Ticket_2666', 'Adj Age', 'Cabin_B49', 'Ticket_350043', 'Ticket_7598', 'Ticket_STON/O 2. 3101269', 'Ticket_65306', 'TicketPre_SWPP', 'Ticket_W.E.P. 5734', 'Ticket_113050', 'Cabin_B102', 'Cabin_B38', 'Deck_E', 'Cabin_B96 B98', 'Ticket_111369', 'Ticket_2689', 'Cabin_E12', 'Ticket_113767', 'Ticket_STON/O 2. 3101288', 'Ticket_3101265', 'Cabin_D46', 'Cabin_E77']]
 #X_test = X_test[['Cabin_E58', 'TicketPre_C', 'Ticket_7552', 'Ticket_345764', 'Ticket_364849', 'Cabin_E44', 'Ticket_A/5. 10482', 'Cabin_D33', 'Ticket_347071', 'Ticket_29105', 'Ticket_382649', 'Ticket_PC 17611', 'Ticket_315098', 'Ticket_C 17369', 'Cabin_A10', 'Ticket_113773', 'Ticket_2678', 'Cabin_C95', 'Ticket_13049', 'Ticket_11967', 'TicketPre_STONO', 'Ticket_345779', 'Ticket_PC 17473', 'Ticket_36967', 'Ticket_347470', 'Cabin_C104', 'Ticket_2663', 'Ticket_29106', 'Cabin_C52', 'Ticket_2699', 'Ticket_386525', 'Ticket_113804', 'Ticket_244278', 'Ticket_SOTON/O.Q. 392078', 'Ticket_PC 17483', 'Ticket_A/5. 3337', 'Ticket_3101278', 'Ticket_A/5. 3336', 'Cabin_C124', 'Ticket_113781', 'Ticket_113503', 'Ticket_7546', 'Ticket_STON/O 2. 3101285', 'Ticket_W./C. 6609', 'Cabin_E63', 'Ticket_315084', 'Ticket_11753', 'Deck_NA', 'Ticket_349909', 'Cabin_C106', 'Ticket_A/5 3540', 'Ticket_111426', 'Ticket_19943', 'Ticket_2627', 'Ticket_343095', 'Ticket_250651', 'Ticket_347080', 'Ticket_SW/PP 751', 'Ticket_347077', 'Ticket_13213', 'Ticket_244270', 'Ticket_W./C. 6608', 'Ticket_4138', 'Ticket_PC 17485', 'Ticket_110465', 'Ticket_PC 17558', 'Cabin_C47', 'TicketPre_WEP', 'Cabin_A19', 'Ticket_248698', 'Ticket_7553', 'Cabin_C111', 'Ticket_STON/O2. 3101271', 'Cabin_NA', 'Ticket_237798', 'Ticket_PC 17474', 'Deck_C', 'Cabin_C148', 'Title_Mr', 'Cabin_C49', 'Ticket_111428', 'Ticket_347083', 'Ticket_347085', 'Ticket_SOTON/O.Q. 392087', 'Deck_D', 'Cabin_D6', 'Ticket_237671', 'Ticket_113788', 'Ticket_248747', 'Cabin_A31', 'Ticket_367228', 'Cabin_D48', 'TicketPre_WC', 'Ticket_CA 2144', 'Ticket_347088', 'Ticket_330935', 'Cabin_D45', 'Cabin_E8', 'Ticket_2691', 'Ticket_19947', 'Ticket_113786', 'Ticket_13567', 'Cabin_B86', 'Ticket_113051', 'Ticket_19988', 'Ticket_W./C. 14258', 'Ticket_364846', 'Ticket_113760', 'Ticket_364850', 'Ticket_STON/O 2. 3101286', 'Ticket_382651', 'Cabin_D19', 'Cabin_B20', 'Ticket_S.O./P.P. 3', 'Ticket_11668', 'Ticket_113055', 'Ticket_SOTON/OQ 392089', 'TicketPre_SOPP', 'Deck_G', 'Cabin_C92', 'Ticket_16988', 'Ticket_349240', 'Title_Master', 'Ticket_11774', 'Ticket_2668', 'Ticket_363291', 'Ticket_SC/PARIS 2146', 'Ticket_4135', 'Ticket_STON/O2. 3101290', 'Ticket_STON/O 2. 3101289', 'Ticket_312991', 'Title_NA', 'Ticket_111320', 'Ticket_PC 17595', 'Ticket_SC/Paris 2163', 'Cabin_C22 C26', 'Cabin_A20', 'Pclass_1', 'Ticket_4134', 'Ticket_5727', 'TicketPre_PP', 'Sex_male', 'Ticket_PP 9549', 'Cabin_D26', 'Ticket_2908', 'Ticket_3101281', 'Ticket_365226', 'Ticket_2665', 'Ticket_343120', 'Ticket_S.O.C. 14879', 'Ticket_PC 17476', 'Ticket_113806', 'Cabin_B41', 'Ticket_3101295', 'Ticket_CA. 2314', 'Ticket_17453', 'Ticket_PC 17593', 'Cabin_A6', 'Ticket_347081', 'Ticket_345773', 'Ticket_11751', 'Ticket_17463', 'Ticket_350034', 'Ticket_2651', 'Embarked_S', 'Pclass_2', 'Title_Rev', 'Cabin_A26', 'Cabin_D30', 'Ticket_349237', 'Ticket_347742', 'Ticket_2620', 'Ticket_113501', 'Ticket_364516', 'Ticket_364848', 'Ticket_19952', 'Ticket_111427', 'Cabin_C126', 'Ticket_367230', 'Ticket_345763', 'Cabin_E46', 'Ticket_239865', 'Ticket_110564', 'TicketPre_LINE', 'Ticket_112379', 'Ticket_1601', 'Ticket_27042', 'Cabin_B58 B60', 'Ticket_4133', 'Title_Mrs', 'Ticket_350417', 'Ticket_19996', 'Ticket_347054', 'Ticket_345774', 'Ticket_330909', 'Ticket_2677', 'Cabin_E25', 'Ticket_C.A. 2315', 'Ticket_367226', 'TicketPre_FCC', 'Ticket_35281', 'Cabin_C82', 'Sex_female', 'Ticket_C.A. 2673', 'Cabin_C93', 'Ticket_4136', 'Ticket_2653', 'Ticket_347073', 'Ticket_LINE', 'Ticket_345572', 'Cabin_G6', 'Ticket_382652', 'Ticket_315096', 'Ticket_PC 17758', 'Ticket_349245', 'Ticket_2661', 'Ticket_239853', 'Cabin_E10', 'Cabin_C70', 'Cabin_D35', 'Ticket_C.A. 37671', 'Ticket_347082', 'Cabin_D', 'Ticket_347087', 'Cabin_E17', 'Ticket_244252', 'Cabin_A23', 'Cabin_A32', 'Ticket_347089', 'Ticket_PC 17572', 'Ticket_370129', 'SibSp', 'Ticket_112277', 'Ticket_4137', 'Ticket_S.W./PP 752', 'Cabin_E24', 'Ticket_695', 'Ticket_350407', 'Pclass_3', 'Ticket_244373', 'Cabin_D56', 'Ticket_350406', 'Ticket_17474', 'Ticket_349236', 'Ticket_113794', 'Ticket_PC 17475', 'Ticket_220845', 'Ticket_350046', 'Ticket_2666', 'Adj Age', 'Cabin_B49', 'Ticket_350043', 'Ticket_7598', 'Ticket_STON/O 2. 3101269', 'Ticket_65306', 'TicketPre_SWPP', 'Ticket_W.E.P. 5734', 'Ticket_113050', 'Cabin_B102', 'Cabin_B38', 'Deck_E', 'Cabin_B96 B98', 'Ticket_111369', 'Ticket_2689', 'Cabin_E12', 'Ticket_113767', 'Ticket_STON/O 2. 3101288', 'Ticket_3101265', 'Cabin_D46', 'Cabin_E77']]
 
+# Save out training data for bug fixing
+X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
+# Save out transformed Test Data for bug fixing
+X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
+
 
 """
 best_features = classifier.get_best_features(X_train, y_train, logistic_regression=True, cv=100)
@@ -289,14 +259,6 @@ print("")
 print("Results of Predict:")
 print('Misclassified train samples: %d' % (y_train != y_pred).sum())
 print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
-
-
-
-# Save out training data for bug fixing
-X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
-# Save out transformed Test Data for bug fixing
-X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
-
 
 
 # Oops, cross validation has to run the whole thing multiple times!
