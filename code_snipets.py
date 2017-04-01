@@ -1,7 +1,7 @@
 # This is a file where I put useful code snippets I don't intend to use but don't want to forget how to do them
 
 
-"""
+""" How to create minor features for NA
 def fix_missing_values(X, column_name):
     # Old way I created a separate minor feature that the column was missing than set it to -1
     X['Has '+ column_name] = X.apply(lambda x: ~np.isnan(x[column_name]), axis=1)
@@ -10,7 +10,7 @@ def fix_missing_values(X, column_name):
     return X
 """
 
-"""
+""" How to do pipelines
 # How do pipelines with an RFECV and grid search too
     if weights[1] != 0:
         # Kernel SVC
@@ -43,7 +43,7 @@ def fix_missing_values(X, column_name):
     print(param_grid)
 """
 
-"""
+""" How do to cross validation
 # Using Cross Validation Example
 # Create train / test split
 X_train_sub, X_test, y_train_sub, y_test = train_test_split(X_train, y_train, test_size=0.1)
@@ -81,7 +81,7 @@ print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 #mean_by_group = master.groupby('Title').mean()
 #print(mean_by_group['Age'])
 
-"""
+""" How to do linear regression
 # Use Linear Regression to determine chance of survival instead
 # Create linear regression object
 regr = LinearRegression()
@@ -96,9 +96,10 @@ print("Mean squared error: %.2f"
 print('Variance score: %.2f' % regr.score(X_train, y_train))
 """
 
+#How to do concat
 # X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
 
-"""
+""" How to do linear regression
 # Select out only the training portion
 X_train = X_all[0:len(X_train)]
 # Use Linear Regression to determine chance of survival for use within families (i.e. same ticket or same cabin)
@@ -122,7 +123,7 @@ X_all = X_all.drop('Ticket', axis=1)
 
 
 
-"""
+""" How to do munge data with family survival guess
 def munge_data(train_data, test_data=None):
     X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in train_data:
@@ -281,4 +282,51 @@ def get_parent(X, person):
 
     return highest_age_person
 
+"""
+
+
+""" How to do train test split
+
+X_train1, X_test1, y_train1, y_test1 = train_test_split(X_train, y_train, test_size=0.33)
+
+# weights = [lr, svc, knn, rfc, nb]
+clf = classifier.train_ensemble_classifier(X_train1, y_train1, weights = [1, 1, 1, 1, 0], grid_search=False,
+                                cv=10, persist_name="TitanicParams", use_persisted_values=False)
+
+print("******************************************************")
+y_pred = clf.predict(X_train1)
+# returns statistics
+print("")
+print("Results of Predict:")
+print('Misclassified train samples: %d' % (y_train1 != y_pred).sum())
+print('Accuracy of train set: %.2f' % accuracy_score(y_train1, y_pred))
+
+
+# Oops, cross validation has to run the whole thing multiple times!
+# Try Kfold Cross Validation and get a more realistic score
+scores = cross_val_score(estimator=clf, X=X_train1, y=y_train1, cv=10)
+print("")
+print("Results of Cross Validation:")
+#print('CV accuracy scores: %s' % scores)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+
+
+
+y_pred = clf.predict(X_test1)
+# returns statistics
+print("")
+print("Results of Predict:")
+print('Misclassified train samples: %d' % (y_test1 != y_pred).sum())
+print('Accuracy of train set: %.2f' % accuracy_score(y_test1, y_pred))
+
+
+# Oops, cross validation has to run the whole thing multiple times!
+# Try Kfold Cross Validation and get a more realistic score
+scores = cross_val_score(estimator=clf, X=X_test1, y=y_test1, cv=10)
+print("")
+print("Results of Cross Validation:")
+#print('CV accuracy scores: %s' % scores)
+print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+
+print("******************************************************")
 """
