@@ -80,3 +80,42 @@ print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 #master = X_train.loc[(~pd.isnull(X_train['Age']))] # & (X_train['Title'] == 'Col')
 #mean_by_group = master.groupby('Title').mean()
 #print(mean_by_group['Age'])
+
+"""
+# Use Linear Regression to determine chance of survival instead
+# Create linear regression object
+regr = LinearRegression()
+# Train the model using the training sets
+regr.fit(X_train, y_train)
+# The coefficients
+print('Coefficients: \n', regr.coef_)
+# The mean squared error
+print("Mean squared error: %.2f"
+      % np.mean((regr.predict(X_train) - y_train) ** 2))
+# Explained variance score: 1 is perfect prediction
+print('Variance score: %.2f' % regr.score(X_train, y_train))
+"""
+
+# X = pd.concat([train_data.ix[:,0:1], train_data.ix[:,2:3], train_data.ix[:,4:8], train_data.ix[:,9:]], axis=1) # .ix allows you to slice using labels and position, and concat pieces them back together. Not best way to do this.
+
+"""
+# Select out only the training portion
+X_train = X_all[0:len(X_train)]
+# Use Linear Regression to determine chance of survival for use within families (i.e. same ticket or same cabin)
+regr = LinearRegression()
+# Train the model using the training sets
+regr.fit(X_train, y_train)
+y_pred_regr = regr.predict(X_all)
+X_all['Survival Chance'] = y_pred_regr
+# Create columns for filling in father and mother survival chance
+X_all['Father Survival Chance'] = 0.0
+X_all['Mother Survival Chance'] = 0.0
+# Now group familes and predict chances of parent surviving
+# X_all['Parent Survival Factor'] = calculate_parent_survival_factor(X_all, le2)
+X_all['Father Survival Chance'] = X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x, le2, 0), axis=1)
+X_all['Mother Survival Chance'] = X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x, le2, 1), axis=1)
+# print(X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x, le2), axis=1))
+X_all = X_all.drop('Survival Chance', axis=1)
+X_all = X_all.drop('Cabin', axis=1)
+X_all = X_all.drop('Ticket', axis=1)
+"""
