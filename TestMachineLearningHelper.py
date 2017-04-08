@@ -17,7 +17,7 @@ def get_data(train_data):
 
 
 class TestMachineLearningHelper(TestCase):
-    def test_get_best_features(self):
+    def test_get_best_recursive_features(self):
         # Read in training data
         trainfile = os.getcwd() + '\\Data\\UnitTestTrain.csv'
         train_data = pd.read_csv(trainfile)
@@ -31,7 +31,7 @@ class TestMachineLearningHelper(TestCase):
         X_train, y_train = get_data(train_data)
         X_test, y_test = get_data(test_data)
 
-        best_features = mlh.get_best_features(X_train, y_train, logistic_regression=True, random_forest=True,
+        best_features = mlh.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest=True,
                                                     decision_tree=True)
 
 

@@ -6,7 +6,7 @@ from sklearn.tree import export_graphviz
 import numpy as np
 
 # noinspection PyPep8Naming
-def get_best_features(X, y, logistic_regression = False, random_forest = False, decision_tree = False, cv=3, decision_tree_features=10, create_graph=False):
+def get_best_recursive_features(X, y, logistic_regression = False, random_forest = False, decision_tree = False, cv=3, decision_tree_features=10, create_graph=False):
 
     orig_features = X.columns
     dict_of_bests = {}

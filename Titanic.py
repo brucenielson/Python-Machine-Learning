@@ -215,7 +215,7 @@ X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 
 """
-best_features = ml_helper.get_best_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=100, create_graph=True)
+best_features = ml_helper.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=100, create_graph=True)
 # Use only best features
 X_train = X_train[best_features['Logistic Regression']]
 X_test = X_test[best_features['Logistic Regression']]
