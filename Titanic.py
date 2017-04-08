@@ -23,7 +23,7 @@ from sklearn.model_selection import cross_val_score # Note: What is cross_val_pr
 # log.info("Starting Titanic Training on " + str(time.strftime("%c")))
 
 
-def munge_data(train_data, test_data=None):
+def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = False):
     X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in train_data:
         y_train = train_data['Survived']
@@ -56,8 +56,40 @@ def munge_data(train_data, test_data=None):
     X_all = X_all.drop('Name', axis=1)
     X_all = X_all.drop('Age', axis=1)
 
+    # Label Encoder way
+    le = preprocessing.LabelEncoder()
+    # Label Encode cabin
+    le.fit(X_all.Cabin.unique())
+    X_all['Cabin'] = le.transform(X_all['Cabin'])
+    # Label Encode Sex
+    le.fit(X_all.Sex.unique())
+    X_all['Sex'] = le.transform(X_all['Sex'])
+    # Label Encode Title
+    le.fit(X_all.Title.unique())
+    X_all['Title'] = le.transform(X_all['Title'])
+    # Label Encode Deck
+    le.fit(X_all.Deck.unique())
+    X_all['Deck'] = le.transform(X_all['Deck'])
+    # Label Encode Embarked
+    le.fit(X_all.Embarked.unique())
+    X_all['Embarked'] = le.transform(X_all['Embarked'])
+    # Label Encode Ticket Prefix
+    le.fit(X_all.TicketPre.unique())
+    X_all['TicketPre'] = le.transform(X_all['TicketPre'])
+    # Label Encode ticket
+    le.fit(X_all.Ticket.unique())
+    X_all['Ticket'] = le.transform(X_all['Ticket'])
+
+    # To get down to fewer columns if desired
+    if reduced_columns == True:
+        X_all = X_all.drop('Ticket', axis=1)
+        X_all = X_all.drop('Cabin', axis=1)
+
     # One Hot Encoding way
-    cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
+    if reduced_columns == True:
+        cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre'] #, 'Cabin', 'Ticket']
+    else:
+        cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
     # First create columns by one hot encoding data and additional data (which will contain train and test data)
     X_all = pd.get_dummies(X_all, columns = cols_to_transform )
 
@@ -82,6 +114,12 @@ def munge_data(train_data, test_data=None):
 
     print("# of Columns:")
     print(len(X_train.columns))
+
+    # Do we want to show correlations?
+    if show_corr == True:
+        X_corr = X_train.copy(deep=True)
+        X_corr['Survived'] = y_train.copy(deep=True)
+        print(X_corr.corr()['Survived'])
 
     return X_train, y_train, X_test
 
@@ -166,7 +204,7 @@ testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 
 # Now munge the train data, but include test data so we get consistent one hot encoding
-X_train, y_train, X_test = munge_data(train_data, test_data=test_data)
+X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=False, reduced_columns=False)
 
 # Save out training data for bug fixing
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
