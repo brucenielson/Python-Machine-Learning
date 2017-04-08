@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score
 from importlib import reload
 from sklearn.feature_selection import RFECV
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
+import MachineLearningHelper as ml_helper
 
 
 # Start log file
@@ -65,17 +66,17 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
     le.fit(X_all.Sex.unique())
     X_all['Sex'] = le.transform(X_all['Sex'])
     # Label Encode Title
-    le.fit(X_all.Title.unique())
-    X_all['Title'] = le.transform(X_all['Title'])
+    #le.fit(X_all.Title.unique())
+    #X_all['Title'] = le.transform(X_all['Title'])
     # Label Encode Deck
-    le.fit(X_all.Deck.unique())
-    X_all['Deck'] = le.transform(X_all['Deck'])
+    #le.fit(X_all.Deck.unique())
+    #X_all['Deck'] = le.transform(X_all['Deck'])
     # Label Encode Embarked
-    le.fit(X_all.Embarked.unique())
-    X_all['Embarked'] = le.transform(X_all['Embarked'])
+    #le.fit(X_all.Embarked.unique())
+    #X_all['Embarked'] = le.transform(X_all['Embarked'])
     # Label Encode Ticket Prefix
-    le.fit(X_all.TicketPre.unique())
-    X_all['TicketPre'] = le.transform(X_all['TicketPre'])
+    #le.fit(X_all.TicketPre.unique())
+    #X_all['TicketPre'] = le.transform(X_all['TicketPre'])
     # Label Encode ticket
     le.fit(X_all.Ticket.unique())
     X_all['Ticket'] = le.transform(X_all['Ticket'])
@@ -204,7 +205,7 @@ testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 
 # Now munge the train data, but include test data so we get consistent one hot encoding
-X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=False, reduced_columns=False)
+X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=False, reduced_columns=True)
 
 # Save out training data for bug fixing
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
@@ -212,11 +213,13 @@ X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
 X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 
+
 """
-best_features = classifier.get_best_features(X_train, y_train, logistic_regression=True, cv=100)
+best_features = ml_helper.get_best_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=100, create_graph=True)
 # Use only best features
 X_train = X_train[best_features['Logistic Regression']]
 X_test = X_test[best_features['Logistic Regression']]
+exit()
 """
 
 # weights = [lr, svc, knn, rfc, nb]

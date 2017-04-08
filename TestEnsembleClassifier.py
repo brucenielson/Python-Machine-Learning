@@ -1,7 +1,6 @@
 from unittest import TestCase
 import pandas as pd
 import os
-from sklearn.preprocessing import StandardScaler
 import EnsembleClassifier as classifier
 from sklearn.metrics import accuracy_score
 
@@ -12,13 +11,6 @@ def get_data(train_data):
         y_train = train_data.loc[:,'Class']
     else:
         y_train = None
-
-    # Scale and center
-    #col_names = ['Column1', 'Column2']
-    #features = X_train.loc[:,col_names]
-    #scaler = StandardScaler().fit(features.values)
-    #features = scaler.transform(features.values)
-    #X_train.loc[:, col_names] = features
 
     return X_train, y_train
 
