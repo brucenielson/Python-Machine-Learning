@@ -2,7 +2,6 @@ from unittest import TestCase
 import pandas as pd
 import os
 import MachineLearningHelper as mlh
-from sklearn.metrics import accuracy_score
 
 
 def get_data(train_data):

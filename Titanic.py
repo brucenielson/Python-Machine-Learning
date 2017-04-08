@@ -4,18 +4,14 @@ import numpy as np
 import os
 import logging as log
 import re
-from PlotDecision import plot_decision_regions
 from sklearn import preprocessing
 from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import export_graphviz
 from sklearn.metrics import accuracy_score
 from importlib import reload
-from sklearn.feature_selection import RFECV
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
 import MachineLearningHelper as ml_helper
+
+#TODO: from PlotDecision import plot_decision_regions
 
 
 # Start log file
