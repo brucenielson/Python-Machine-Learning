@@ -33,8 +33,10 @@ def assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['
 
     for symbol in syms:
         data = pdr.DataReader(symbol, 'yahoo', sd, ed)
-        df = df.join(data['Adj Close'])
+        df = df.join(data['Adj Close'])# , how='inner')
         df = df.rename(columns={'Adj Close': symbol})
+        if symbol == 'SPY':  # drop dates SPY did not trade
+            df = df.dropna(subset=["SPY"])
 
     # Fill in missing values
     df.fillna(method='ffill', inplace=True)
