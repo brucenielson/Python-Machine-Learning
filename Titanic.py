@@ -201,7 +201,7 @@ testfile = os.getcwd() + '\\Titanic\\test.csv'
 test_data = pd.read_csv(testfile)
 
 # Now munge the train data, but include test data so we get consistent one hot encoding
-X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=False, reduced_columns=True)
+X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True)
 
 # Save out training data for bug fixing
 X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)

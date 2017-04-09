@@ -63,7 +63,7 @@ def assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['
 
     # Gather Stats
     cr = df_norm.ix[-1] - df_norm.ix[0]
-    #print(cr)
+    print(cr)
 
     # Create Plots
     if gen_plot:
