@@ -5,7 +5,9 @@ import LinearRegression as lr
 from importlib import reload
 
 
-# from imp import reload
+# Turn on interactive mode for matplotlib
+plt.ion()
+
 # Clear and Close Figures
 plt.close()
 
