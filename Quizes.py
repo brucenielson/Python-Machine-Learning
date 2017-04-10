@@ -329,10 +329,8 @@ def compute_daily_returns(df):
     dr = df.copy()
     dr[1:] = (df[1:] / df[:-1].values) - 1
     dr.ix[0, :] = 0
-    print
-    dr.head()
-    print
-    dr.tail()
+    print dr.head()
+    print dr.tail()
     return dr
 
 
