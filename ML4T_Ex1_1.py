@@ -35,6 +35,8 @@ def get_data(syms, sd, ed):
 
     # Drop the SPY I added
     spy = df['DROP'].copy(deep=True)
+    spy = pd.DataFrame(spy,spy.index)
+    spy = spy.rename(columns={'DROP': 'SPY'})
     df = df.drop('DROP', axis=1)
 
     return df, spy
@@ -88,7 +90,7 @@ def assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['
     # Sum each row (i.e. all position values for each day). That is your daily portfolio value.
     # Use axis 1 because that means we are going to sum across the columns *for every row*
     df_daily_portfolio = df_value.sum(axis=1)
-    df_daily_portfolio = pd.DataFrame(df_daily_portfolio,df_value.index, ['Dollars'])
+    df_daily_portfolio = pd.DataFrame(df_daily_portfolio,df_value.index, ['Portfolio'])
     # Get statistic based on portfolio value, such as...
 
     # Create Plots
@@ -96,6 +98,7 @@ def assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['
     if gen_plot:
         # Show plots
         # Straight Prices
+        """
         plot_data(df_prices, title='Stock Prices', ylabel='Price')
         # Normalized to 1.0
         plot_data(df_norm, title='Stock Returns', ylabel='Return')
@@ -103,6 +106,7 @@ def assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['
         plot_data(df_daily, title='Daily Returns', ylabel='Daily Return')
         # Daily Portfolio Value
         plot_data(df_daily_portfolio, title='Portfolio Value', ylabel='Dollars')
+        """
         # Normalzied Portfolio returns vs SPY
         df_compare = df_daily_portfolio.join(spy)
         df_port_norm = df_compare / df_compare.ix[0]
@@ -221,72 +225,74 @@ def get_data(symbols, dates):
 """
 
 
-# Turn on interactive mode for matplotlib
-plt.ion()
+
+def main():
+    # Turn on interactive mode for matplotlib
+    plt.ion()
 
 
-"""
-cr, adr, sddr, sr, ev = assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1),
-    syms=['GOOG','AAPL','GLD','XOM'],
-    allocs=[0.1,0.2,0.3,0.4],
-    sv=1000000, rfr=0.0, sf=252.0,
-    gen_plot=False)
-"""
+    """
+    cr, adr, sddr, sr, ev = assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1),
+        syms=['GOOG','AAPL','GLD','XOM'],
+        allocs=[0.1,0.2,0.3,0.4],
+        sv=1000000, rfr=0.0, sf=252.0,
+        gen_plot=False)
+    """
 
-#cr, adr, sddr, sr, ev =
-cr = assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['GOOG','AAPL','GLD','XOM'],
-    allocs=[0.1,0.2,0.3,0.4], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
-
-
-"""
-Example 1
-Start Date: 2010-01-01
-End Date: 2010-12-31
-Symbols: ['GOOG', 'AAPL', 'GLD', 'XOM']
-Allocations: [0.2, 0.3, 0.4, 0.1]
-Sharpe Ratio: 1.51819243641
-Volatility (stdev of daily returns): 0.0100104028
-Average Daily Return: 0.000957366234238
-Cumulative Return: 0.255646784534
-"""
-print("")
-print("Example 1:")
-assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['GOOG','AAPL','GLD','XOM'],
-    allocs=[0.2,0.3,0.4,0.1], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
-
-"""
-Start Date: 2010-01-01
-End Date: 2010-12-31
-Symbols: ['AXP', 'HPQ', 'IBM', 'HNZ']
-Allocations: [0.0, 0.0, 0.0, 1.0]
-Sharpe Ratio: 1.30798398744
-Volatility (stdev of daily returns): 0.00926153128768
-Average Daily Return: 0.000763106152672
-Cumulative Return: 0.198105963655
-"""
-# TODO: For some reason, the answers he gives and my answers do not match. Can't really check this without his CSV file. But I did a double check and it looks like I'm right
-print("")
-print("Example 2:")
-assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['AXP', 'HPQ', 'IBM', 'HNZ'],
-    allocs=[0.0, 0.0, 0.0, 1.0], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
-print("--Double Check--")
-assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['HNZ'],
-    allocs=[1.0], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
+    #cr, adr, sddr, sr, ev =
+    cr = assess_portfolio(sd=dt.datetime(2008,1,1), ed=dt.datetime(2009,1,1), syms=['GOOG','AAPL','GLD','XOM'],
+        allocs=[0.1,0.2,0.3,0.4], sv=1000000, rfr=0.0, sf=252.0, gen_plot=True)
 
 
-"""
-Start Date: 2010-06-01
-End Date: 2010-12-31
-Symbols: ['GOOG', 'AAPL', 'GLD', 'XOM']
-Allocations: [0.2, 0.3, 0.4, 0.1]
-Sharpe Ratio: 2.21259766672
-Volatility (stdev of daily returns): 0.00929734619707
-Average Daily Return: 0.00129586924366
-Cumulative Return: 0.205113938792
-"""
-print("")
-print("Example 3:")
-assess_portfolio(sd=dt.datetime(2010,6,1), ed=dt.datetime(2010,12,31), syms=['GOOG','AAPL','GLD','XOM'],
-    allocs=[0.2, 0.3, 0.4, 0.1], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
+    """
+    Example 1
+    Start Date: 2010-01-01
+    End Date: 2010-12-31
+    Symbols: ['GOOG', 'AAPL', 'GLD', 'XOM']
+    Allocations: [0.2, 0.3, 0.4, 0.1]
+    Sharpe Ratio: 1.51819243641
+    Volatility (stdev of daily returns): 0.0100104028
+    Average Daily Return: 0.000957366234238
+    Cumulative Return: 0.255646784534
+    """
+    print("")
+    print("Example 1:")
+    assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['GOOG','AAPL','GLD','XOM'],
+        allocs=[0.2,0.3,0.4,0.1], sv=1000000, rfr=0.0, sf=252.0, gen_plot=True)
+
+    """
+    Start Date: 2010-01-01
+    End Date: 2010-12-31
+    Symbols: ['AXP', 'HPQ', 'IBM', 'HNZ']
+    Allocations: [0.0, 0.0, 0.0, 1.0]
+    Sharpe Ratio: 1.30798398744
+    Volatility (stdev of daily returns): 0.00926153128768
+    Average Daily Return: 0.000763106152672
+    Cumulative Return: 0.198105963655
+    """
+    # TODO: For some reason, the answers he gives and my answers do not match. Can't really check this without his CSV file. But I did a double check and it looks like I'm right
+    print("")
+    print("Example 2:")
+    assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['AXP', 'HPQ', 'IBM', 'HNZ'],
+        allocs=[0.0, 0.0, 0.0, 1.0], sv=1000000, rfr=0.0, sf=252.0, gen_plot=True)
+    print("--Double Check--")
+    assess_portfolio(sd=dt.datetime(2010,1,1), ed=dt.datetime(2010,12,31), syms=['HNZ'],
+        allocs=[1.0], sv=1000000, rfr=0.0, sf=252.0, gen_plot=False)
+
+
+    """
+    Start Date: 2010-06-01
+    End Date: 2010-12-31
+    Symbols: ['GOOG', 'AAPL', 'GLD', 'XOM']
+    Allocations: [0.2, 0.3, 0.4, 0.1]
+    Sharpe Ratio: 2.21259766672
+    Volatility (stdev of daily returns): 0.00929734619707
+    Average Daily Return: 0.00129586924366
+    Cumulative Return: 0.205113938792
+    """
+    print("")
+    print("Example 3:")
+    assess_portfolio(sd=dt.datetime(2010,6,1), ed=dt.datetime(2010,12,31), syms=['GOOG','AAPL','GLD','XOM'],
+        allocs=[0.2, 0.3, 0.4, 0.1], sv=1000000, rfr=0.0, sf=252.0, gen_plot=True)
 
 
