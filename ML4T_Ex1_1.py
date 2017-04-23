@@ -35,7 +35,7 @@ def get_data(syms, sd, ed):
 
     # Drop the SPY I added
     spy = df['DROP'].copy(deep=True)
-    spy = pd.DataFrame(spy,spy.index)
+    spy = pd.DataFrame(spy,spy.index,dtype=dt.datetime)
     spy = spy.rename(columns={'DROP': 'SPY'})
     df = df.drop('DROP', axis=1)
 
