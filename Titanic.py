@@ -20,7 +20,7 @@ import MachineLearningHelper as ml_helper
 # log.info("Starting Titanic Training on " + str(time.strftime("%c")))
 
 
-def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = False):
+def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = False, verbose=True):
     X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in train_data:
         y_train = train_data['Survived']
@@ -109,14 +109,16 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
     X_train = X_all[0:len(X_train)]
     X_test = X_all[len(X_train):len(X_all)]
 
-    print("# of Columns:")
-    print(len(X_train.columns))
+    if verbose:
+        print("# of Columns:")
+        print(len(X_train.columns))
 
     # Do we want to show correlations?
     if show_corr == True:
         X_corr = X_train.copy(deep=True)
         X_corr['Survived'] = y_train.copy(deep=True)
-        print(X_corr.corr()['Survived'])
+        if verbose:
+            print(X_corr.corr()['Survived'])
 
     return X_train, y_train, X_test
 
@@ -189,59 +191,61 @@ def cabin_to_deck(cabin):
 
 
 
+def titanic():
+
+    # Read in training data
+    trainfile = os.getcwd() + '\\Titanic\\train.csv'
+    train_data = pd.read_csv(trainfile)
+    # Grab Test data now so that we can build a proper one hot encoded data set
+    # Test data often has options not in training data, so we have to review both together
+    # If we want to one hot encoded things correctly
+    testfile = os.getcwd() + '\\Titanic\\test.csv'
+    test_data = pd.read_csv(testfile)
+
+    # Now munge the train data, but include test data so we get consistent one hot encoding
+    X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True)
+
+    # Save out training data for bug fixing
+    X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
+    # Save out transformed Test Data for bug fixing
+    X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
 
-# Read in training data
-trainfile = os.getcwd() + '\\Titanic\\train.csv'
-train_data = pd.read_csv(trainfile)
-# Grab Test data now so that we can build a proper one hot encoded data set
-# Test data often has options not in training data, so we have to review both together
-# If we want to one hot encoded things correctly
-testfile = os.getcwd() + '\\Titanic\\test.csv'
-test_data = pd.read_csv(testfile)
 
-# Now munge the train data, but include test data so we get consistent one hot encoding
-X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True)
+    """
+    best_features = ml_helper.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=10, create_graph=True)
+    print(best_features)
+    # Use only best features
+    X_train = X_train[best_features['Logistic Regression']]
+    X_test = X_test[best_features['Logistic Regression']]
+    return
+    """
 
-# Save out training data for bug fixing
-X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
-# Save out transformed Test Data for bug fixing
-X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
+    # weights = [lr, svc, knn, rfc, nb]
+    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False,
+                                    cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
-
-
-"""
-best_features = ml_helper.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=100, create_graph=True)
-# Use only best features
-X_train = X_train[best_features['Logistic Regression']]
-X_test = X_test[best_features['Logistic Regression']]
-exit()
-"""
-
-# weights = [lr, svc, knn, rfc, nb]
-clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False,
-                                cv=10, persist_name="TitanicParams", use_persisted_values=True)
-
-y_pred = clf.predict(X_train)
-# returns statistics
-print("")
-print("Results of Predict:")
-print('Misclassified train samples: %d' % (y_train != y_pred).sum())
-print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
+    y_pred = clf.predict(X_train)
+    # returns statistics
+    print("")
+    print("Results of Predict:")
+    print('Misclassified train samples: %d' % (y_train != y_pred).sum())
+    print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred))
 
 
-# Oops, cross validation has to run the whole thing multiple times!
-# Try Kfold Cross Validation and get a more realistic score
-scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
-print("")
-print("Results of Cross Validation:")
-print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+    # Oops, cross validation has to run the whole thing multiple times!
+    # Try Kfold Cross Validation and get a more realistic score
+    scores = cross_val_score(estimator=clf, X=X_train, y=y_train, cv=10)
+    print("")
+    print("Results of Cross Validation:")
+    print('CV accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
 
 
-# Now predict using Test Data
-y_pred = clf.predict(X_test)
-y_pred = pd.DataFrame(y_pred)
-y_pred.columns = ['Survived']
+    # Now predict using Test Data
+    y_pred = clf.predict(X_test)
+    y_pred = pd.DataFrame(y_pred)
+    y_pred.columns = ['Survived']
 
-final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
-final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
+    final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
+    final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
+
