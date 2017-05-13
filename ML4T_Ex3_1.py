@@ -3,6 +3,7 @@ import random
 import pandas as pd
 import Titanic
 import os
+import math
 from importlib import reload
 
 """
@@ -43,10 +44,6 @@ def build_tree(data, tree_type="random"):
 
     else:
         #determine best or random feature i to split on
-        #SplitVal	=	(data[random,i]	+	data[random,i])	/	2
-        # Split data up
-        #leftree = build_tree(data[data[:, i] <= SplitVal])
-        #righttree = build_tree(data[data[:, i] > SplitVal])
         if tree_type == 'random':
             split_feature = get_random_feature(data)
         elif tree_type == 'entropy':
@@ -55,12 +52,13 @@ def build_tree(data, tree_type="random"):
             raise Exception("Invalid tree_type")
 
         # Find where to split the feature up into
-        # TODO: use correct splitVal
-        sum = data.ix[:, split_feature].sum()
-        count = data.ix[:, split_feature].count()
-        split_val = float(sum) / float(count)
+        #SplitVal	=	(data[random,i]	+	data[random,i])	/	2
+        split_val = get_split_val(data, split_feature)
 
         # Split data up and return
+        # Split data up
+        #leftree = build_tree(data[data[:, i] <= SplitVal])
+        #righttree = build_tree(data[data[:, i] > SplitVal])
         left_data = data[data.loc[:, split_feature] <= split_val]
         right_data = data[data.loc[:, split_feature] > split_val]
 
@@ -78,6 +76,18 @@ def build_tree(data, tree_type="random"):
 
         # Return tree
         return create_rows(root, left_tree, right_tree)
+
+
+
+def get_split_val(data, split_feature):
+    # SplitVal	=	(data[random,i]	+	data[random,i])	/	2
+    rand_nbr1 = random.randint(0,len(data)-1)
+    item1 = data.iloc[rand_nbr1][split_feature]
+    rand_nbr2 = rand_nbr1
+    while rand_nbr2 == rand_nbr1:
+        rand_nbr2 = random.randint(0, len(data)-1)
+    item2 = data.iloc[rand_nbr2][split_feature]
+    return (item1 + item2) / 2
 
 
 def create_rows(root, left, right):
@@ -107,7 +117,24 @@ def remove_nesting(tree):
 
 
 def get_best_feature(data):
+
     return
+
+
+def calc_class_entropy(data):
+    # Get possible classes in this data set. Y is always last column.
+    classes = data.iloc[:][-1].unique()
+    # From Machine Learning by Mitchel p. 57: Entropy = sum for each possible classification; -proportion log2 proportion.
+    # Collective Intelligence, p. 148
+    total_rows = len(data)
+    entropy = 0
+    for item in classes:
+        class_rows = data[data.loc[:][-1] == item].count()
+        portion = class_rows/total_rows
+        entropy += -portion * math.log(portion, 2)
+
+    return entropy
+
 
 
 
