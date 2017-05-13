@@ -23,12 +23,12 @@ class RTLearner(object):
     def addEvidence(self, Xtrain, Ytrain):
         # Combine X and Y together
         data = pd.concat([Xtrain, Ytrain], axis=1)
-        return buildTree(data)
+        return build_tree(data)
 
     #def query(self, Xtest):
 
 
-def buildTree(data, treeType="random"):
+def build_tree(data, tree_type="random"):
     # See http://quantsoftware.gatech.edu/images/4/4e/How-to-learn-a-decision-tree.pdf
     #build_tree(data)
     # if data.shape[0] == 1:    return [leaf, data.y, NA, NA]
@@ -37,67 +37,85 @@ def buildTree(data, treeType="random"):
         return ["leaf", data.iloc[0, -1], -1, -1]
 
     #if all    data.y    same:    return [leaf, data.y, NA, NA]
-    # Check to see if final column, i.e. Survived, is all the same value. If so, terminate.
+    # Check to see if final column, i.e. Y, is all the same value. If so, terminate.
     if len(data.ix[:, -1].unique()) == 1:
         return ["leaf", data.iloc[0, -1], -1, -1]
 
     else:
-        #determine best feature i to split on
-        if treeType == "random":
-            #TODO: This seems to select Survived as a feature at times, but I can't see how that is possible
-            splitFeatureNbr = random.randint(0,len(data.columns.values[0:-1])-1) # [0,-1] to drop Y value and then -1 because zero indexed
-            splitFeature = data.columns[splitFeatureNbr]
-            if splitFeature == 'Survived':
-                print('here')
-        elif treeType == 'entropy':
-            splitFeature = determineBestSplit(data)
-        else:
-            raise Exception("treeType must be random or entropy")
-
+        #determine best or random feature i to split on
         #SplitVal	=	(data[random,i]	+	data[random,i])	/	2
-        #TODO: use correct splitVal
-        featureData = data.ix[:, splitFeature]
-        sum = data.ix[:, splitFeature].sum()
-        count = data.ix[:, splitFeature].count()
-        #TODO: This sometimes gets a divide by zero error. WHy would count ever by zero?
-        if count == 0:
-            print('here')
-        splitVal = float(sum)/float(count)
-
+        # Split data up
         #leftree = build_tree(data[data[:, i] <= SplitVal])
-        leftData = data[data.loc[:,splitFeature] <= splitVal]
-        if len(leftData) > 0:
-            leftTree = buildTree(leftData, treeType=treeType)
-        else:
-            leftTree = None
-
         #righttree = build_tree(data[data[:, i] > SplitVal])
-        rightData = data[data.loc[:,splitFeature] > splitVal]
-        if len(rightData) > 0:
-            rightTree = buildTree(rightData, treeType=treeType)
+        if tree_type == 'random':
+            split_feature = get_random_feature(data)
+        elif tree_type == 'entropy':
+            split_feature = get_best_feature(data)
         else:
-            rightTree = None
+            raise Exception("Invalid tree_type")
 
-        if not (leftTree == None or rightTree == None):
-            #root = [i,	SplitVal,	1,	leftree.shape[0]	+	1]
-            root = [splitFeature, splitVal, 1, len(leftTree)+1]
-            #return (append(root, leftree, righttree))
-            ret = []
-            ret.append(root)
-            ret.append(leftTree)
-            ret.append(rightTree)
-            return ret
+        # Find where to split the feature up into
+        # TODO: use correct splitVal
+        sum = data.ix[:, split_feature].sum()
+        count = data.ix[:, split_feature].count()
+        split_val = float(sum) / float(count)
 
-        elif leftTree != None:
-            return leftTree
-        else:
-            return rightTree
+        # Split data up and return
+        left_data = data[data.loc[:, split_feature] <= split_val]
+        right_data = data[data.loc[:, split_feature] > split_val]
+
+        # If the split fails, create a leaf
+        if len(data) == len(left_data) or len(data) == len(right_data):
+            return ["leaf", data.iloc[-1].value_counts().max(), -1, -1]
+
+        # The split is good, so call recursively
+        left_tree = build_tree(left_data, tree_type=tree_type)
+        right_tree = build_tree(right_data, tree_type=tree_type)
+
+        # Create root
+        # root = [i,	SplitVal,	1,	leftree.shape[0]	+	1]
+        root = [split_feature, split_val, 1, len(left_tree) + 1]
+
+        # Return tree
+        return create_rows(root, left_tree, right_tree)
+
+
+def create_rows(root, left, right):
+    root = remove_nesting(root)
+    left = remove_nesting(left)
+    right = remove_nesting(right)
+    ret = [root]
+    if type(left[0]) == list:
+        for i in range(0,len(left)):
+            ret.append(left[i])
+    else:
+        ret.append(left)
+    if type(right[0]) == list:
+        for i in range(0,len(right)):
+            ret.append(right[i])
+    else:
+        ret.append(right)
+    return ret
+
+
+def remove_nesting(tree):
+    if len(tree) > 1:
+        return tree
+    else:
+        return remove_nesting(tree[0])
 
 
 
-
-def determineBestSplit(Xtrain, Ytrain):
+def get_best_feature(data):
     return
+
+
+
+def get_random_feature(data):
+    feature_nbr = random.randint(0, len(data.columns.values[0:-1]) - 1)  # [0,-1] to drop Y value and then -1 because zero indexed
+    split_feature = data.columns.values[feature_nbr]
+    return split_feature
+
 
 
 """
