@@ -40,8 +40,8 @@ class TestTrain_ensemble_classifier(TestCase):
         # returns statistics
         wrong1 = (y_train != y_pred).sum()
         accuracy1 = accuracy_score(y_train, y_pred)
-        self.assertTrue(wrong1 == 0 or wrong1 == 1)
-        self.assertTrue(accuracy1 >=  0.95 and accuracy1 <=1.0)
+        self.assertTrue(wrong1 <= 1)
+        self.assertTrue(accuracy1 >= 0.95)
 
         # Now predict using Test Data
         y_pred = clf.predict(X_test)
@@ -50,8 +50,8 @@ class TestTrain_ensemble_classifier(TestCase):
         self.assertEqual(len(y_pred), len(y_test))
         wrong2 = (y_test != y_pred).sum()
         accuracy2 = accuracy_score(y_test, y_pred)
-        self.assertTrue(wrong2  == 5 or wrong2 == 6)
-        self.assertTrue(accuracy2 >= 0.7 and accuracy2 <= 0.75)
+        self.assertTrue(wrong2  <= 3)
+        self.assertTrue(accuracy2 >= 0.85)
 
         # weights = [lr, svc, knn, rfc, nb]
         clf = classifier.train_ensemble_classifier(X_train, y_train, weights=[1, 1, 1, 1, 1], grid_search=False,
@@ -62,8 +62,8 @@ class TestTrain_ensemble_classifier(TestCase):
         # returns statistics
         wrong1 = (y_train != y_pred).sum()
         accuracy1 = accuracy_score(y_train, y_pred)
-        self.assertTrue(wrong1 == 0 or wrong1 == 1)
-        self.assertTrue(accuracy1 >=  0.95 and accuracy1 <=1.0)
+        self.assertTrue(wrong1 <= 1)
+        self.assertTrue(accuracy1 >= 0.95)
 
         # Now predict using Test Data
         y_pred = clf.predict(X_test)
@@ -72,5 +72,5 @@ class TestTrain_ensemble_classifier(TestCase):
         self.assertEqual(len(y_pred), len(y_test))
         wrong2 = (y_test != y_pred).sum()
         accuracy2 = accuracy_score(y_test, y_pred)
-        self.assertTrue(wrong2  == 5 or wrong2 == 6)
-        self.assertTrue(accuracy2 >= 0.7 and accuracy2 <= 0.75)
+        self.assertTrue(wrong2  <= 3)
+        self.assertTrue(accuracy2 >= 0.85)
