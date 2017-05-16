@@ -10,11 +10,17 @@ if __name__ == '__main__':
 class TestML4T_Ex3_1(unittest.TestCase):
     def test_calc_entropy(self):
         a = pd.DataFrame([[0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
-        result = ML4T_Ex3_1.calc_entropy(a)
-        self.assertAlmostEqual(result, 0.94028595867063092)
+        entropy = ML4T_Ex3_1.calc_entropy(a)
+        self.assertAlmostEqual(entropy, 0.94028595867063092)
 
-    def test_calc_feature_entropy(self):
+    def test_calc_info_gain(self):
         a = pd.DataFrame([[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [0, 0], [0, 0], [0, 0]], columns=['feature', 'result'])
-        result = ML4T_Ex3_1.calc_feature_entropy(a, 'feature')
-        print(result)
-        self.assertAlmostEqual(result, 0.0481270304083)
+        gain, best_value = ML4T_Ex3_1.calc_info_gain(a, 'feature')
+        self.assertAlmostEqual(gain, 0.0481270304083)
+        self.assertEqual(best_value, 0)
+
+    def test_calc_variance(self):
+        a = pd.DataFrame([[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [0, 0], [0, 0], [0, 0]], columns=['feature', 'result'])
+        variance, best_value = ML4T_Ex3_1.calc_variance(a, 'feature')
+        self.assertAlmostEqual(variance, 0.3)
+        self.assertEqual(best_value, 1)
