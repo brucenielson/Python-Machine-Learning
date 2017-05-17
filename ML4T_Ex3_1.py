@@ -32,9 +32,9 @@ class RTLearner(object):
         # TODO: make it use ndarrays instead
         # ??data = np.concatenate([Xtrain, Ytrain], axis=1)
         self.model = build_tree(data, leaf_size=self.leaf_size, verbose=self.verbose, tree_type=self.tree_type, output_type=self.output_type)
+        return self.model
 
     def query(self, X):
-        print(self.model)
         return query_tree(X, self.model)
 
 
@@ -354,7 +354,7 @@ kwargs = {"k":10}
 for i in range(0,bags):
     learners.append(learner(**kwargs))
 """
-def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=True):
+def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=False):
     # Read in training data
     trainfile = os.getcwd() + '\\Titanic\\train.csv'
     train_data = pd.read_csv(trainfile)
@@ -384,5 +384,9 @@ def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=True):
     print('Misclassified train samples: %d' % incorrect)
     print('Accuracy of train set: %.2f' % accuracy)
 
-    print(y_pred)
+    y_test = learner.query(X_test)
+    y_test = pd.DataFrame(y_test, columns=['Survived'])
+    y_test['Survived'] = y_test['Survived'].astype(int)
+    final_submission = pd.concat([test_data['PassengerId'], y_test], axis=1)
+    final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
 
