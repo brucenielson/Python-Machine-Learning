@@ -297,6 +297,7 @@ def calc_info_gain(scoref, data, feature):
     best_score = 0
     # For each possible value, calculate it's score
     for value in values:
+        """
         if type(value) == int or np.issubdtype(type(value), np.integer):
             set1 = data[data.loc[:,feature] == value]
             set2 = data[data.loc[:,feature] != value]
@@ -305,6 +306,10 @@ def calc_info_gain(scoref, data, feature):
             set2 = data[data.loc[:, feature] < value]
         else:
             raise Exception("Values need to be int or float. Please format.")
+        """
+        set1 = data[data.loc[:, feature] >= value]
+        set2 = data[data.loc[:, feature] < value]
+
         proportion_1 = len(set1)/total_rows
         proportion_2 = 1-proportion_1
         score = current_score - (proportion_1 * scoref(set1)) - (proportion_2 * scoref(set2))
@@ -372,7 +377,7 @@ def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=False):
     if use_persisted_values:
         learner = load_model(file_name=persist_name)
     else:
-        learner = RTLearner(leaf_size = 20, verbose = False, output_type="classification", tree_type="variance") # constructor
+        learner = RTLearner(leaf_size = 20, verbose = True, output_type="classification", tree_type="random") # constructor
         tree = learner.addEvidence(X_train, y_train) # training step
         save_model(learner, file_name=persist_name)
         print(tree)
