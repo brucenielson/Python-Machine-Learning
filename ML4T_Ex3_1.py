@@ -5,6 +5,7 @@ import numpy as np
 import Titanic
 import os
 import math
+import pickle
 from importlib import reload
 
 """
@@ -30,9 +31,11 @@ class RTLearner(object):
         data = pd.concat([Xtrain, Ytrain], axis=1)
         # TODO: make it use ndarrays instead
         # ??data = np.concatenate([Xtrain, Ytrain], axis=1)
-        return build_tree(data, leaf_size=self.leaf_size, tree_type=self.tree_type, output_type=self.output_type)
+        self.model = build_tree(data, leaf_size=self.leaf_size, verbose=self.verbose, tree_type=self.tree_type, output_type=self.output_type)
 
-    #def query(self, Xtest):
+    def query(self, X):
+        print(self.model)
+        return query_tree(X, self.model)
 
 
 """
@@ -50,7 +53,7 @@ class BagLearner(object):
         self.boost = boost
         self.verbose = verbose
 
-    def addEvidence(selfself, Xtrain, Ytrain):
+    def addEvidence(self, Xtrain, Ytrain):
         # Combine X and Y together
         data = pd.concat([Xtrain, Ytrain], axis=1)
         # TODO: make it use ndarrays instead
@@ -58,10 +61,39 @@ class BagLearner(object):
 
 
 
+# query expects a list with rows as samples and columns as features WITHOUT Y connected
+def query_tree(X, model):
+    # Loop through each sample in a Row
+    y = []
+    root = model[0]
+    index=0
+    for i in range(0, len(X)):
+        current_node = root
+        index=0
+        while current_node[0] != "leaf":
+            split_feature = current_node[0]
+            split_val = current_node[1]
+            value = X.loc[i, split_feature]
+            if value >= split_val:
+                # Take left branch
+                offset = current_node[2]
+                current_node = model[index + offset]
+                index += offset
+            else:
+                # Take right branch
+                offset = current_node[3]
+                current_node = model[index + offset]
+                index += offset
+        # We are on a leaf
+        if current_node[0] != "leaf": raise Exception("Something wrong with structure of tree model.")
+        guess = current_node[1]
+        y.append(guess)
+
+    return y
 
 
 
-def build_tree(data, leaf_size=1, tree_type="random", output_type="classification"):
+def build_tree(data, leaf_size=1, verbose=False, tree_type="random", output_type="classification"):
     # See http://quantsoftware.gatech.edu/images/4/4e/How-to-learn-a-decision-tree.pdf
     #build_tree(data)
     # if data.shape[0] == 1:    return [leaf, data.y, NA, NA]
@@ -72,10 +104,10 @@ def build_tree(data, leaf_size=1, tree_type="random", output_type="classificatio
             # For classification trees, use the largest class of the Y value in the rows making up this leaf
             counts = dict(data.iloc[:, -1].value_counts())
             maximum_value = max(counts, key=counts.get)
-            return ["leaf", maximum_value, -1, -1]
+            return ["leaf", float(maximum_value), -1, -1]
         elif output_type=="regression":
             # For regression trees, use the average of the Y value in the rows making up this leaf
-            return ["leaf", data.iloc[:,-1].mean(), -1, -1]
+            return ["leaf", float(data.iloc[:,-1].mean()), -1, -1]
         else:
             raise Exception("'output_type' must be either classification or regression.")
 
@@ -83,7 +115,7 @@ def build_tree(data, leaf_size=1, tree_type="random", output_type="classificatio
     # Check to see if final column, i.e. Y, is all the same value. If so, terminate.
     if len(data.ix[:, -1].unique()) == 1:
         # Since all Y results are identical in the remaining rows, just return the first Y value for the rows
-        return ["leaf", data.iloc[0, -1], -1, -1]
+        return ["leaf", float(data.iloc[0, -1]), -1, -1]
 
     else:
         # Main loop
@@ -121,29 +153,30 @@ def build_tree(data, leaf_size=1, tree_type="random", output_type="classificatio
             if output_type == "classification":
                 counts = dict(data.iloc[:,-1].value_counts())
                 maximum_value = max(counts, key=counts.get)
-                return ["leaf", maximum_value, -1, -1]
+                return ["leaf", float(maximum_value), -1, -1]
             elif output_type=='regression':
-                return ["leaf", data.iloc[:,-1].mean(), -1, -1]
+                return ["leaf", float(data.iloc[:,-1].mean()), -1, -1]
             else:
                 raise Exception("'output_type' must be classification or regression")
 
-        # Show statistics
-        print("")
-        print("")
-        print("Split on:" + split_feature + " at " + str(split_val))
-        print("Left Tree:")
-        survived = len(left_data[left_data.iloc[:,-1]==1])
-        total = len(data)
-        percent = survived/len(left_data)
-        print("Survived: "+str(survived)+"; % Survived: " + str(percent))
-        print("Rows: " + str(len(left_data)))
-        print("")
-        print("Right Tree:")
-        survived = len(right_data[right_data.iloc[:, -1] == 1])
-        percent = survived/len(right_data)
-        print("Survived: " + str(survived) + "; % Survived: " + str(percent))
-        print("Rows: " + str(len(right_data)))
-        print("*************************************")
+        if verbose:
+            # Show statistics
+            print("")
+            print("")
+            print("Split on:" + split_feature + " at " + str(split_val))
+            print("Left Tree:")
+            survived = len(left_data[left_data.iloc[:,-1]==1])
+            total = len(data)
+            percent = survived/len(left_data)
+            print("Survived: "+str(survived)+"; % Survived: " + str(percent))
+            print("Rows: " + str(len(left_data)))
+            print("")
+            print("Right Tree:")
+            survived = len(right_data[right_data.iloc[:, -1] == 1])
+            percent = survived/len(right_data)
+            print("Survived: " + str(survived) + "; % Survived: " + str(percent))
+            print("Rows: " + str(len(right_data)))
+            print("*************************************")
 
 
         # The split is good -- there are rows in both left and right tree -- so call recursively
@@ -222,8 +255,6 @@ def get_best_feature(data, tree_type="random"):
             best_feature = feature
             best_split_val = split_val
 
-    if best_score <= 0 or best_score == None:
-        print("here")
     return best_feature, best_split_val
 
 
@@ -242,40 +273,13 @@ def calc_entropy(data):
 
     return entropy
 
+
 def calc_variance(data):
     if len(data)==0: return 0
     values = [row[-1] for index, row in data.iterrows()]
     mean = sum(values) / len(data)
     variance = sum( [(value - mean)**2 for value in values] ) / len(data)
     return variance
-
-
-
-def calc_variance_old(data, feature):
-    current_variance = data.iloc[:, -1].var()
-    # For each possible value, calculate it's variance if you split on this value
-    values = data.loc[:, feature].unique()
-    total_rows = len(data)
-    best_variance = 0
-    best_criteria = None
-
-    for value in values:
-        set1 = data[data.loc[:,feature] >= value]
-        set2 = data[data.loc[:,feature] < value]
-        variance1 = set1.iloc[:, -1].var()
-        if pd.isnull(variance1): variance1 = 0
-        variance2 = set2.iloc[:, -1].var()
-        if pd.isnull(variance2): variance2 = 0
-        proportion_1 = len(set1)/total_rows
-        proportion_2 = 1-proportion_1
-        new_variance = current_variance - (proportion_1* variance1) - (proportion_2* variance2)
-        if new_variance >= best_variance:
-            best_variance = current_variance
-            best_criteria = value
-
-    if best_variance <= 0 or best_criteria == None:
-        print("here")
-    return best_variance, best_criteria
 
 
 
@@ -318,6 +322,30 @@ def get_random_feature(data):
     return split_feature
 
 
+def save_model(model, file_name='treemodel'):
+    # noinspection PyBroadException
+    try:
+        os.remove(os.path.dirname(__file__)+"\\Persistence\\"+file_name)
+    except:
+        pass
+    finally:
+        f = open(os.path.dirname(__file__)+"\\Persistence\\"+file_name, 'wb') # w for write, b for binary
+    pickle.dump(model, f)
+    f.close()
+
+
+
+def load_model(file_name='treemodel'):
+    # noinspection PyBroadException
+    try:
+        f = open(os.path.dirname(__file__) + "\\Persistence\\" + file_name, "rb")
+        data = pickle.load(f)
+        f.close()
+    except:
+        data = {}
+    return data
+
+
 
 """
 # Instantiate several learners with the parameters listed in kwargs
@@ -326,7 +354,7 @@ kwargs = {"k":10}
 for i in range(0,bags):
     learners.append(learner(**kwargs))
 """
-def train_titanic():
+def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=True):
     # Read in training data
     trainfile = os.getcwd() + '\\Titanic\\train.csv'
     train_data = pd.read_csv(trainfile)
@@ -338,10 +366,23 @@ def train_titanic():
 
     X_train, y_train, X_test = Titanic.munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True, verbose=False)
 
-    X_train = X_train[['Title_Mr', 'Adj Age', 'Fare', 'Pclass_3', 'Sex_0', 'Pclass_2', 'Deck_C', 'SibSp']]
-    X_test = X_test[['Title_Mr', 'Adj Age', 'Fare', 'Pclass_3', 'Sex_0', 'Pclass_2', 'Deck_C', 'SibSp']]
+    X_train = X_train[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
+    X_test = X_test[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
 
-    learner = RTLearner(leaf_size = 20, verbose = False, output_type="classification", tree_type="variance") # constructor
-    result = learner.addEvidence(X_train, y_train) # training step
-    print(result)
+    if use_persisted_values:
+        learner = load_model(file_name=persist_name)
+    else:
+        learner = RTLearner(leaf_size = 20, verbose = False, output_type="classification", tree_type="variance") # constructor
+        tree = learner.addEvidence(X_train, y_train) # training step
+        save_model(learner, file_name=persist_name)
+        print(tree)
+
+    y_pred = learner.query(X_train)
+    incorrect = float((y_train != y_pred).sum())
+    accuracy = float(len(y_train) - incorrect) / float(len(y_train))
+    print("Results of Predict:")
+    print('Misclassified train samples: %d' % incorrect)
+    print('Accuracy of train set: %.2f' % accuracy)
+
+    print(y_pred)
 

@@ -108,6 +108,8 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
     # Now split train and test apart again
     X_train = X_all[0:len(X_train)]
     X_test = X_all[len(X_train):len(X_all)]
+    #X_train = X_train[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
+    #X_test = X_test[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
 
     if verbose:
         print("# of Columns:")
