@@ -6,37 +6,8 @@ import Titanic
 import os
 import math
 import pickle
+import time
 from importlib import reload
-
-"""
-#Example of how to use RTLearner:
-
-import RTLearner as rt
-learner = rt.RTLearner(leaf_size = 1, verbose = False) # constructor
-learner.addEvidence(Xtrain, Ytrain) # training step
-Y = learner.query(Xtest) # query
-
-"""
-
-class RTLearner(object):
-    def __init__(self, leaf_size = 1, verbose = False, tree_type="random", output_type="regression", is_continuous=True):
-        self.leaf_size = leaf_size
-        self.verbose = verbose
-        self.tree_type = tree_type
-        self.output_type = output_type
-        self.input_type=is_continuous
-
-    def addEvidence(self, Xtrain, Ytrain):
-        # Combine X and Y together
-        data = pd.concat([Xtrain, Ytrain], axis=1)
-        # TODO: make it use ndarrays instead
-        # ??data = np.concatenate([Xtrain, Ytrain], axis=1)
-        self.model = build_tree(data, leaf_size=self.leaf_size, verbose=self.verbose, tree_type=self.tree_type, output_type=self.output_type)
-        return self.model
-
-    def query(self, X):
-        return query_tree(X, self.model)
-
 
 """
 # How to use BagLearner:
@@ -48,17 +19,110 @@ Y = learner.query(Xtest)
 """
 
 class BagLearner(object):
-    def __init__(self, learner, kwargs, bags = 20, boost=False, verbose = False):
+    def __init__(self, learner, kwargs, bags = 20, boost=False, verbose = False, output_type="regression"):
         self.bags = bags
         self.boost = boost
         self.verbose = verbose
+        self.learner = learner
+        self.kwargs = kwargs
+        self.output_type = output_type
+
 
     def addEvidence(self, Xtrain, Ytrain):
+        """
+        # Instantiate several learners with the parameters listed in kwargs
+        learners = []
+        kwargs = {"k":10}
+        for i in range(0,bags):
+            learners.append(learner(**kwargs))
+        """
+
         # Combine X and Y together
         data = pd.concat([Xtrain, Ytrain], axis=1)
         # TODO: make it use ndarrays instead
         # #??data = np.concatenate([Xtrain, Ytrain], axis=1)
+        self.learners = []
+        # kwargs = {"k": 10}
 
+        for i in range(0, self.bags):
+            learner = self.learner(**self.kwargs)
+            bag = self.get_random_bag(data)
+            learner.addEvidence(bag)
+            self.learners.append(learner)
+
+
+    def query(self, Xtest):
+        results = []
+        # Query each random tree
+        for i in range(0, self.bags):
+            results.append(self.learners[i].query(Xtest))
+
+        # Tally results via a vote
+        results = pd.DataFrame(np.asarray(results))
+        final_result = []
+        for i in range(0, results.shape[1]):
+            # iterate over each column
+            column = results[:][i]
+            if self.output_type == "classification":
+                # For classification trees, use the largest class of the Y value in the rows making up this leaf
+                counts = dict(column.value_counts())
+                maximum_value = max(counts, key=counts.get)
+                vote = float(maximum_value)
+            elif self.output_type=="regression":
+                # For regression trees, use the average of the Y value in the rows making up this leaf
+                vote = float(column.mean())
+            else:
+                raise Exception("'output_type' must be classification or regression")
+
+            final_result.append(vote)
+
+        return final_result
+
+
+    def get_random_bag(self, data):
+        n = len(data)
+        bag = pd.DataFrame(index=data.index.values, columns = data.columns.values)
+        for i in range(0, n):
+            rnd_val = random.randint(0,n-1)
+            bag.iloc[i] = data.iloc[rnd_val]
+        return bag
+
+
+"""
+#Example of how to use RTLearner:
+
+import RTLearner as rt
+learner = rt.RTLearner(leaf_size = 1, verbose = False) # constructor
+learner.addEvidence(Xtrain, Ytrain) # training step
+Y = learner.query(Xtest) # query
+
+"""
+class RTLearner(object):
+    def __init__(self, leaf_size=1, verbose=False, tree_type="random", output_type="regression", is_continuous=True):
+        self.leaf_size = leaf_size
+        self.verbose = verbose
+        self.tree_type = tree_type
+        self.output_type = output_type
+        self.input_type = is_continuous
+
+
+    def addEvidence(self, Xtrain, Ytrain=None):
+        if Ytrain is None:
+            data = Xtrain
+        else:
+            # Combine X and Y together
+            data = pd.concat([Xtrain, Ytrain], axis=1)
+
+        # TODO: make it use ndarrays instead
+        # ??data = np.concatenate([Xtrain, Ytrain], axis=1)
+        self.model = build_tree(data, leaf_size=self.leaf_size, verbose=self.verbose, tree_type=self.tree_type,
+                                output_type=self.output_type)
+        return self.model
+
+
+
+    def query(self, X):
+        return query_tree(X, self.model)
 
 
 # query expects a list with rows as samples and columns as features WITHOUT Y connected
@@ -73,7 +137,7 @@ def query_tree(X, model):
         while current_node[0] != "leaf":
             split_feature = current_node[0]
             split_val = current_node[1]
-            value = X.loc[i, split_feature]
+            value = X.iloc[i][split_feature]
             if value >= split_val:
                 # Take left branch
                 offset = current_node[2]
@@ -121,10 +185,16 @@ def build_tree(data, leaf_size=1, verbose=False, tree_type="random", output_type
         # Main loop
         #determine best or random feature i to split on
         if tree_type == 'random':
+            # TODO: Fix so that it more intellgiently handles selection of a feature and split that cause an error due to all being on one side
             split_feature = get_random_feature(data)
             # Find where to split the feature up into by randomly selecting a feature and the mean of two rows for that feature
             # SplitVal	=	(data[random,i]	+	data[random,i])	/	2
             split_val = get_split_val(data, split_feature)
+            # If all the values for this feature are identical, than this is a bad split still. Test for this possibility
+            if split_val == data.iloc[0][split_feature]: # I have to .ilog[][] because I want position for first and name for second. A little unclear why this works.
+                # if the mean equals item1, then that means every value is identical, so thsi still isnt' going to work
+                # select a new feature
+                split_feature, split_val = get_semi_random_feature(data, split_feature)
 
         elif tree_type == 'entropy' or tree_type == 'variance':
             # Both entropy (for trees with only discrete values) and variance (for trees with some continuous values) bot need to get the best feature by that criteria
@@ -180,8 +250,8 @@ def build_tree(data, leaf_size=1, verbose=False, tree_type="random", output_type
 
 
         # The split is good -- there are rows in both left and right tree -- so call recursively
-        left_tree = build_tree(left_data, leaf_size=leaf_size, tree_type=tree_type, output_type=output_type)
-        right_tree = build_tree(right_data, leaf_size=leaf_size, tree_type=tree_type, output_type=output_type)
+        left_tree = build_tree(left_data, leaf_size=leaf_size, verbose=verbose, tree_type=tree_type, output_type=output_type)
+        right_tree = build_tree(right_data, leaf_size=leaf_size, verbose=verbose, tree_type=tree_type, output_type=output_type)
 
         # Create root
         # root = [i,	SplitVal,	1,	leftree.shape[0]	+	1]
@@ -204,7 +274,32 @@ def get_split_val(data, split_feature):
     while rand_nbr2 == rand_nbr1:
         rand_nbr2 = random.randint(0, len(data)-1)
     item2 = data.iloc[rand_nbr2][split_feature]
-    return (item1 + item2) / 2
+    split_val = (item1 + item2) / 2
+    # Check if this is valid
+    if split_val == item1:
+        #if the average equals the first item, then this isn't going to work because we might get a non-splitting value.
+        # Get a real mean.
+        split_val = data.loc[:, split_feature].mean()
+
+    return split_val
+
+
+def get_semi_random_feature(data, split_feature):
+    # Only call this function if the random approach didn't work
+    # Try each feature in turn, starting at the one last selected
+    end = data.columns.get_loc(split_feature)
+    highest = len(data.columns)-1
+    current = (end + 1) % highest
+    while current != end:
+        feature = data.columns.values[current]
+        split_val = get_split_val(data, feature)
+        if data.iloc[0][feature] != split_val:
+            split_feature = feature
+            break
+        current = (current + 1) % highest
+
+    return split_feature, split_val
+
 
 
 def create_rows(root, left, right):
@@ -352,14 +447,7 @@ def load_model(file_name='treemodel'):
 
 
 
-"""
-# Instantiate several learners with the parameters listed in kwargs
-learners = []
-kwargs = {"k":10}
-for i in range(0,bags):
-    learners.append(learner(**kwargs))
-"""
-def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=False):
+def train_titanic_tree(persist_name="ML4T_Ex3_1Model", use_persisted_values=False):
     # Read in training data
     trainfile = os.getcwd() + '\\Titanic\\train.csv'
     train_data = pd.read_csv(trainfile)
@@ -377,14 +465,60 @@ def train_titanic(persist_name="ML4T_Ex3_1Model", use_persisted_values=False):
     if use_persisted_values:
         learner = load_model(file_name=persist_name)
     else:
-        learner = RTLearner(leaf_size = 20, verbose = True, output_type="classification", tree_type="random") # constructor
+        learner = RTLearner(leaf_size = 50, verbose = False, output_type="classification", tree_type="random") # constructor
         tree = learner.addEvidence(X_train, y_train) # training step
         save_model(learner, file_name=persist_name)
         print(tree)
 
+    start = time.time()
     y_pred = learner.query(X_train)
+    end = time.time()
+    length = end - start
     incorrect = float((y_train != y_pred).sum())
     accuracy = float(len(y_train) - incorrect) / float(len(y_train))
+    print("Run Time: %.2f seconds" % length)
+    print("Results of Predict:")
+    print('Misclassified train samples: %d' % incorrect)
+    print('Accuracy of train set: %.2f' % accuracy)
+
+    y_test = learner.query(X_test)
+    y_test = pd.DataFrame(y_test, columns=['Survived'])
+    y_test['Survived'] = y_test['Survived'].astype(int)
+    final_submission = pd.concat([test_data['PassengerId'], y_test], axis=1)
+    final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
+
+
+
+def train_titanic_forest(persist_name="ML4T_Ex3_1Forest", use_persisted_values=False):
+    # Read in training data
+    trainfile = os.getcwd() + '\\Titanic\\train.csv'
+    train_data = pd.read_csv(trainfile)
+    # Grab Test data now so that we can build a proper one hot encoded data set
+    # Test data often has options not in training data, so we have to review both together
+    # If we want to one hot encoded things correctly
+    testfile = os.getcwd() + '\\Titanic\\test.csv'
+    test_data = pd.read_csv(testfile)
+
+    X_train, y_train, X_test = Titanic.munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True, verbose=False)
+
+    X_train = X_train[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
+    X_test = X_test[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
+
+    if use_persisted_values:
+        learner = load_model(file_name=persist_name)
+    else:
+        params = {'leaf_size':50, 'verbose': False, 'output_type': "classification", 'tree_type': "random"}
+        learner = BagLearner(RTLearner, params, bags=20, boost=False, verbose=False, output_type="classification")
+        learner.addEvidence(X_train, y_train) # training step
+        save_model(learner, file_name=persist_name)
+
+    start = time.time()
+    y_pred = learner.query(X_train)
+    end = time.time()
+    length = end - start
+    incorrect = float((y_train != y_pred).sum())
+    accuracy = float(len(y_train) - incorrect) / float(len(y_train))
+    print("Run Time: %.2f seconds" % length)
     print("Results of Predict:")
     print('Misclassified train samples: %d' % incorrect)
     print('Accuracy of train set: %.2f' % accuracy)

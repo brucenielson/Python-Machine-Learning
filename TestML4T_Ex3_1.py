@@ -17,12 +17,12 @@ class TestML4T_Ex3_1(unittest.TestCase):
         data = pd.DataFrame([[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [0, 0], [0, 0], [0, 0]], columns=['feature', 'result'])
         gain, best_value = ML4T_Ex3_1.calc_info_gain(ML4T_Ex3_1.calc_entropy, data, 'feature')
         self.assertAlmostEqual(gain, 0.0481270304083)
-        self.assertEqual(best_value, 0)
+        self.assertEqual(best_value, 1)
 
         data = pd.DataFrame([[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [0, 0], [0, 0], [0, 0]], columns=['feature', 'result'])
         gain, best_value = ML4T_Ex3_1.calc_info_gain(ML4T_Ex3_1.calc_variance, data, 'feature')
         self.assertAlmostEqual(gain, 0.015306122449)
-        self.assertEqual(best_value, 0)
+        self.assertEqual(best_value, 1)
 
     def test_calc_variance(self):
         data = pd.DataFrame([[1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [0, 1], [0, 1], [0, 1], [1, 0], [1, 0], [0, 0], [0, 0], [0, 0]], columns=['feature', 'result'])
