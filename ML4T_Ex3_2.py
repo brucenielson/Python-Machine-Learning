@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 import random
+import time
 import copy
 
 #http://quantsoftware.gatech.edu/MC3-Project-2
@@ -55,23 +56,45 @@ class QLearner(object):
         self.radr = radr
         self.dyna = dyna
         self.verbose = verbose
-        self.Q = np.zeros(shape=(num_states, num_actions))
+        self.Q = np.zeros(shape=(num_states, num_actions)) #np.full((num_states, num_actions), 0)
+        self.last_a = None
+        self.last_s = None
 
-    def query(self, s, r):
-        # Take a random move?
-        if random.uniform(0, 1) <= self.rar:
-            a = random.randint(0, 3)
-        else:
-            # Get actions for this state s
-            actions = self.Q[s, :]
-            # Get best action
-            a = np.argmax(actions)
+    def query(self, s_prime, r):
+        # Get last move
+        s = self.last_s
+        a = self.last_a
+        # s_prime is new state, so get a_prime which is optimal move for that state according to Q
+        # Get actions for this state s
+        actions = self.Q[s_prime, :]
+        # Get best action
+
+        try:
+            a_prime = np.nanargmax(actions)
+        except:
+            a_prime = 0
 
         # Decay random rate
         self.rar = self.rar * self.radr
 
         # Update Q table
-        self.Q[s, a] = ( (1-self.alpha) * self.Q[s, a] ) + (self.alpha  * (r + (self.gamma * self.Q[s, a])) )
+        if (s != None and a != None):
+            current = self.Q[s, a]
+            if pd.isnull(current): current = 0
+            prime = self.Q[s_prime, a_prime]
+            if pd.isnull(prime): prime = 0
+            new = ( (1-self.alpha) * current ) + (self.alpha  * (r + (self.gamma * prime)) )
+            self.Q[s, a] = new
+        self.last_s = s_prime
+
+        # Are we going to take a_prime or a random move?
+        if random.uniform(0, 1) <= self.rar:
+            a = random.randint(0, 3)
+        else:
+            a = a_prime
+
+        self.last_a = a
+        return a
 
 
 
@@ -79,7 +102,10 @@ class QLearner(object):
         # Get actions for this state s
         actions = self.Q[s,:]
         # Get best action
-        a = np.argmax(actions)
+        try:
+            a = np.nanargmax(actions)
+        except:
+            a = 0
         return a
 
 
@@ -90,7 +116,7 @@ class Maze(object):
     def move_maze(self, s, a):
         x, y = col_from_state(s)
         # 1 in 10 chance to move random direction
-        if random.randint(0, 9) == 0:
+        if random.randint(0, 10) == 0:
             a = random.randint(0,3)
 
         if a == 0:
@@ -126,6 +152,7 @@ class Maze(object):
 
 def testqlearner():
     #Instantiate the learner with the constructor QLearner()
+    start = time.time()
     learner = QLearner()
     maze = Maze()
     r = 0
@@ -135,7 +162,7 @@ def testqlearner():
     a = learner.querysetstate(s)
     #s_prime = new location according to action a
     s_prime = maze.move_maze(s, a)
-    r = -1.0
+    r = -0 # I am not sure how to make thsi work with r = -1
     #while not converged:
     i = 0
     while i < 500:
@@ -146,7 +173,7 @@ def testqlearner():
         # if s_prime == goal:
         if maze.get_location(s_prime) == 3:
             #  r = +1
-            r = 1000
+            r = 100
             #  s_prime = start location
             s_prime = state_from_col(9,4)
             i += 1
@@ -154,14 +181,22 @@ def testqlearner():
         # else if s_prime == quicksand:
         elif maze.get_location(s_prime) == 5:
             # r = -100
-            r = -100
+            r = -1000
         # else:
         else:
             # r = -1
-            r = -1
+            r = -1 # I am not sure how to make thsi work with r = -1
+            #TODO: There is something weird about this. It means that the best path will continually degrade compared to paths not used. It encourages too much wandering
 
-    print("Finished Training")
-    return show_maze_route(learner, maze)
+    end = time.time()
+    length = end - start
+    print("Training Run Time: %.2f seconds" % length)
+    start = time.time()
+    result = show_maze_route(learner, maze)
+    end = time.time()
+    length = end - start
+    print("Display Route Run Time: %.2f seconds" % length)
+    return result
 
 
 
