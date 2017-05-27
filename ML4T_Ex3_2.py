@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 import random
+import copy
 
 #http://quantsoftware.gatech.edu/MC3-Project-2
 
@@ -56,9 +57,23 @@ class QLearner(object):
         self.verbose = verbose
         self.Q = np.zeros(shape=(num_states, num_actions))
 
-    def query(self, s_prime, r):
-        
-        return
+    def query(self, s, r):
+        # Take a random move?
+        if random.uniform(0, 1) <= self.rar:
+            a = random.randint(0, 3)
+        else:
+            # Get actions for this state s
+            actions = self.Q[s, :]
+            # Get best action
+            a = np.argmax(actions)
+
+        # Decay random rate
+        self.rar = self.rar * self.radr
+
+        # Update Q table
+        self.Q[s, a] = ( (1-self.alpha) * self.Q[s, a] ) + (self.alpha  * (r + (self.gamma * self.Q[s, a])) )
+
+
 
     def querysetstate(self, s):
         # Get actions for this state s
@@ -88,9 +103,9 @@ class Maze(object):
             y -= 1
 
         # Calclate new state
-        if x > 9:
+        if x > 9 or x < 0:
             return s
-        elif y > 9:
+        elif y > 9 or y < 0:
             return s
         elif self.maze.iloc[x,y] == 1:
             return s
@@ -102,6 +117,10 @@ class Maze(object):
         x, y = col_from_state(s)
         location = self.maze.iloc[x,y]
         return location
+
+    def mark(self, s):
+        x, y = col_from_state(s)
+        self.maze.iloc[x,y] = 'X'
 
 
 
@@ -118,20 +137,22 @@ def testqlearner():
     s_prime = maze.move_maze(s, a)
     r = -1.0
     #while not converged:
-    for i in range(0,500):
+    i = 0
+    while i < 500:
         # a = query(s_prime, r)
         a = learner.query(s_prime, r)
         # s_prime = new location according to action a
         s_prime = maze.move_maze(s_prime, a)
         # if s_prime == goal:
-        if s_prime == 3:
+        if maze.get_location(s_prime) == 3:
             #  r = +1
-            r = 100
+            r = 1000
             #  s_prime = start location
             s_prime = state_from_col(9,4)
+            i += 1
 
         # else if s_prime == quicksand:
-        elif s_prime == 5:
+        elif maze.get_location(s_prime) == 5:
             # r = -100
             r = -100
         # else:
@@ -139,10 +160,19 @@ def testqlearner():
             # r = -1
             r = -1
 
-    return learner
+    print("Finished Training")
+    return show_maze_route(learner, maze)
 
 
 
+def show_maze_route(learner, maze):
+    s = state_from_col(9, 4)
+    while maze.get_location(s) != 3:
+        maze.mark(s)
+        a = learner.querysetstate(s)
+        s = maze.move_maze(s, a)
+
+    return maze.maze
 
 
 
