@@ -56,7 +56,7 @@ class QLearner(object):
         self.radr = radr
         self.dyna = dyna
         self.verbose = verbose
-        self.Q = np.zeros(shape=(num_states, num_actions)) #np.full((num_states, num_actions), 0)
+        self.Q = np.full((num_states, num_actions), 0.0) #np.zeros(shape=(num_states, num_actions))
         self.last_a = None
         self.last_s = None
 
