@@ -69,11 +69,11 @@ class QLearner(object):
         actions = self.Q[s_prime, :]
         # Get best action
 
-        a_prime = np.argmax(actions)
-        #try:
-        #    a_prime = np.nanargmax(actions)
-        #except:
-        #    a_prime = 0
+        #a_prime = np.argmax(actions)
+        try:
+            a_prime = np.nanargmax(actions)
+        except:
+            a_prime = 0
 
         # Decay random rate
         self.rar = self.rar * self.radr
@@ -105,11 +105,11 @@ class QLearner(object):
         # Get actions for this state s
         actions = self.Q[s,:]
         # Get best action
-        a = np.argmax(actions)
-        #try:
-        #    a = np.nanargmax(actions)
-        #except:
-        #    a = 0
+        #a = np.argmax(actions)
+        try:
+            a = np.nanargmax(actions)
+        except:
+            a = 0
         return a
 
 
