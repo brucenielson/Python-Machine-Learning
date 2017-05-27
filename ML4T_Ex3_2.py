@@ -69,25 +69,25 @@ class QLearner(object):
         actions = self.Q[s_prime, :]
         # Get best action
 
-        #a_prime = np.argmax(actions)
-        try:
-            a_prime = np.nanargmax(actions)
-        except:
-            a_prime = 0
+        a_prime = np.argmax(actions)
+        #try:
+        #    a_prime = np.nanargmax(actions)
+        #except:
+        #    a_prime = 0
 
         # Decay random rate
         self.rar = self.rar * self.radr
 
         # Update Q table
         if (s != None and a != None):
-            self.Q[s, a] = ( (1-self.alpha) * self.Q[s, a] ) + (self.alpha  * (r + (self.gamma * self.Q[s_prime, a_prime])) )
+            #self.Q[s, a] = ( (1-self.alpha) * self.Q[s, a] ) + (self.alpha  * (r + (self.gamma * self.Q[s_prime, a_prime])) )
 
-            #current = self.Q[s, a]
-            #if pd.isnull(current): current = 0
-            #prime = self.Q[s_prime, a_prime]
-            #if pd.isnull(prime): prime = 0
-            #new = ( (1-self.alpha) * current ) + (self.alpha  * (r + (self.gamma * prime)) )
-            #self.Q[s, a] = new
+            current_val = self.Q[s, a]
+            if pd.isnull(current_val): current_val = 0
+            prime = self.Q[s_prime, a_prime]
+            if pd.isnull(prime): prime = 0
+            new_val = ( (1-self.alpha) * current_val ) + (self.alpha  * (r + (self.gamma * prime)) )
+            self.Q[s, a] = new_val
         self.last_s = s_prime
 
         # Are we going to take a_prime or a random move?
@@ -105,11 +105,11 @@ class QLearner(object):
         # Get actions for this state s
         actions = self.Q[s,:]
         # Get best action
-        #a = np.argmax(actions)
-        try:
-            a = np.nanargmax(actions)
-        except:
-            a = 0
+        a = np.argmax(actions)
+        #try:
+        #    a = np.nanargmax(actions)
+        #except:
+        #    a = 0
         return a
 
 
