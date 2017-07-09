@@ -301,7 +301,8 @@ def get_semi_random_feature(data, split_feature):
     return split_feature, split_val
 
 
-
+# TODO: I should have used a numpy array and used squeeze() to fix the nesting
+# TODO: No! Better yet! Use "Ravel()" or "Flatten()" Or use flat_list = [item for sublist in l for item in sublist]
 def create_rows(root, left, right):
     root = remove_nesting(root)
     left = remove_nesting(left)
