@@ -334,11 +334,11 @@ def titanic():
 
     # Try PCA
     #X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
-    X_pca = PerformPCA(X_train, n_components=2)
+    X_pca = PerformPCA(X_train, n_components=10)
     X_train = X_pca
     # Plot PCA version
-    plt.plot(X_train, y_train)
-    plt.show()
+    #plt.plot(X_train, y_train)
+    #plt.show()
 
 
     """
