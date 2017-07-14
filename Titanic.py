@@ -153,7 +153,6 @@ def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True
 
     # Save off predictions
     X_all['Survival Guess'] = y_pred_initial_prob[:,1]
-    print(X_all.loc[:, 'Survival Guess'])
     # Create columns for filling in family survival chance based on prediction for oldest family member
     X_all['Family Survival Guess'] = -1
     # Now group familes and predict chances of parent surviving
@@ -162,7 +161,6 @@ def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True
     X_all = X_all.drop('Survival Guess', axis=1)
     #X_all = X_all.drop('Family Survival Guess', axis=1)
     X_all = X_all.drop('Ticket', axis=1)
-    print(X_all.loc[:,'Family Survival Guess'])
 
     # returns statistics
     y_pred_initial = y_pred_initial[0:len(X_train)]
@@ -315,7 +313,6 @@ def titanic():
 
     # Now munge the train data, but include test data so we get consistent one hot encoding
     X_train, y_train, X_test = munge_data(train_data, test_data=test_data, reduced_columns=False, use_top=0.01)
-
     # Save out training data for bug fixing
     X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
     # Save out transformed Test Data for bug fixing

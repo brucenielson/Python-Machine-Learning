@@ -116,7 +116,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
         criterion = ['gini', 'entropy']
         min_samples_split = [2, 4, 6]
         min_samples_leaf = [1, 3, 5, 0.01, 0.1]
-        n_estimators = [100]
+        n_estimators = [10, 50, 100]
         param_grid = dict(max_features=max_features, max_depth=max_depth, criterion=criterion, min_samples_split=min_samples_split, min_samples_leaf=min_samples_leaf, n_estimators=n_estimators)
         # Create classifier
         clf = create_classifier(X, y, RandomForestClassifier, 'rfc', grid_search, param_grid, use_persisted_values, persist_name, cv=cv)
