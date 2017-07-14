@@ -10,6 +10,8 @@ from sklearn.metrics import accuracy_score
 from importlib import reload
 from sklearn.model_selection import cross_val_score # Note: What is cross_val_predict?
 import MachineLearningHelper as ml_helper
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
 
 #TODO: from PlotDecision import plot_decision_regions
 
@@ -20,7 +22,7 @@ import MachineLearningHelper as ml_helper
 # log.info("Starting Titanic Training on " + str(time.strftime("%c")))
 
 
-def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = False, verbose=True):
+def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True, use_top=None):
     X_train = train_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
     if 'Survived' in train_data:
         y_train = train_data['Survived']
@@ -31,7 +33,7 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
     if test_data is not None:
         X_test = test_data[['Pclass', 'Sex', 'Age',  'SibSp', 'Parch', 'Fare', 'Embarked', 'Name', 'Cabin', 'Ticket']]
         # Combine both sets for cleansing
-        X_all = pd.concat([X_train, X_test])
+        X_all = pd.concat([X_train, X_test], ignore_index=True)
     else:
         X_all = X_train
 
@@ -82,28 +84,94 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
         X_all = X_all.drop('Ticket', axis=1)
         X_all = X_all.drop('Cabin', axis=1)
 
+
+
+    # Save with Cabin and Ticket
+    X_temp = X_all
+
     # One Hot Encoding way
     if reduced_columns == True:
-        cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre'] #, 'Cabin', 'Ticket']
+        cols_to_transform = ['Sex', 'Embarked', 'Title', 'Deck', 'TicketPre']
     else:
-        cols_to_transform = ['Pclass', 'Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
+        cols_to_transform = ['Sex', 'Embarked', 'Title', 'Deck', 'TicketPre', 'Cabin', 'Ticket']
     # First create columns by one hot encoding data and additional data (which will contain train and test data)
     X_all = pd.get_dummies(X_all, columns = cols_to_transform )
+
+    # Add Ticket back in
+    X_all['Ticket'] = X_temp['Ticket']
+
+    """
+    # Try PCAing the mass of Ticket and Cabin fields down to a handful
+    filter_col = [col for col in list(X_all) if col.startswith('Ticket_') or col.startswith('Cabin_')]
+    X_all_cabin_ticket = X_all.loc[:,filter_col]
+    n_components=100
+    pca = PCA(n_components=n_components)
+    pca_names = ['PCA'+str(num) for num in range(0,n_components)]
+    X_pca = pd.DataFrame(pca.fit_transform(X_all_cabin_ticket), columns=pca_names)
+    print("PCA Explained Variance Ratio")
+    print(pca.explained_variance_ratio_)
+    X_all = X_all.drop(filter_col, axis=1)
+    X_all = X_all.join(X_pca)
+    """
 
     # Fix using Imputer -- fill in with mean for columns with continuous values
     imp = preprocessing.Imputer(missing_values='NaN', strategy='mean', axis=0)
     X_all[['Fare', 'Adj Age']] = imp.fit_transform(X_all[['Fare', 'Adj Age']])
 
     # Temp add new features for regression
-    X_all['Age2'] = X_all['Adj Age']**2
-    X_all['Fare2'] = X_all['Fare']**2
+    #X_all['Age2'] = X_all['Adj Age']**2
+    #X_all['Fare2'] = X_all['Fare']**2
+    #X_all['FamilySize'] = X_all['SibSp'] + X_all['Parch']
 
     # Scale and center
-    col_names = ['Adj Age', 'SibSp', 'Parch', 'Age2', 'Fare', 'Fare2' ]
+    col_names = ['Adj Age', 'SibSp', 'Parch', 'Fare', 'Pclass']#, 'FamilySize', 'Age2', 'Fare2' ]
     features = X_all[col_names]
     scaler = StandardScaler().fit(features.values)
     features = scaler.transform(features.values)
     X_all[col_names] = features
+
+    # Remove columns that contain duplicate info
+    #title_cols = [col for col in list(X_all) if col.startswith('Title_')]
+    #dup_cols = ['Sex_1']# + title_cols
+    #X_all = X_all.drop(dup_cols, axis=1)
+
+    # Trying Family Guess again
+    # Select out only the training portion
+    min_cols = list(X_all.columns.values)
+    drop_cols = [col for col in list(min_cols) if col.startswith('Ticket_') or col.startswith('Cabin_')]
+    min_cols = [col for col in min_cols if col not in drop_cols]
+
+    X_temp_train = X_all[0:len(X_train)][min_cols]
+    # Make initial guess
+    clf = LogisticRegression()
+    clf.fit(X_temp_train, y_train)
+
+    # Predict based on train and test together
+    X_temp = X_all[min_cols]
+    y_pred_initial = clf.predict(X_temp)
+    y_pred_initial_prob = clf.predict_proba(X_temp)
+
+    # Save off predictions
+    X_all['Survival Guess'] = y_pred_initial_prob[:,1]
+    print(X_all.loc[:, 'Survival Guess'])
+    # Create columns for filling in family survival chance based on prediction for oldest family member
+    X_all['Family Survival Guess'] = -1
+    # Now group familes and predict chances of parent surviving
+    X_all['Family Survival Guess'] = X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x), axis=1)
+    #print(X_all.apply(lambda x: calculate_parent_survival_factor(X_all, x, le2), axis=1))
+    X_all = X_all.drop('Survival Guess', axis=1)
+    #X_all = X_all.drop('Family Survival Guess', axis=1)
+    X_all = X_all.drop('Ticket', axis=1)
+    print(X_all.loc[:,'Family Survival Guess'])
+
+    # returns statistics
+    y_pred_initial = y_pred_initial[0:len(X_train)]
+    print("")
+    print("Results of Predict - Initial Guess:")
+    print('Misclassified train samples: %d' % (y_train != y_pred_initial).sum())
+    print('Accuracy of train set: %.2f' % accuracy_score(y_train, y_pred_initial))
+
+
 
     # Now split train and test apart again
     X_train = X_all[0:len(X_train)]
@@ -111,16 +179,34 @@ def munge_data(train_data, test_data=None, show_corr = False, reduced_columns = 
     #X_train = X_train[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
     #X_test = X_test[['Title_Mr', 'Fare', 'Pclass_3', 'Sex_0', 'Deck_C']]
 
+    # Calculate Correlations
+    X_corr = X_train.copy(deep=True)
+    X_corr['Survived'] = y_train.copy(deep=True)
+    correlations = X_corr.corr()['Survived'].to_frame()
+    correlations['Correlation'] = abs(correlations['Survived'])
+    correlations = correlations.sort_values('Correlation', ascending=False)
+
+    if use_top != None:
+        # Only use top features
+        if type(use_top) == int:
+            correlations = correlations[0:use_top]['Survived']
+        elif type(use_top) == float:
+            correlations = correlations[correlations['Correlation'] >= use_top]['Survived']
+        top_cols = list(correlations.index)
+        top_cols.remove('Survived')
+        X_train = X_train[top_cols]
+        X_test = X_test[top_cols]
+
+    # Do we want to show correlations?
+    if verbose:
+        print("***")
+        print("Top Correlations:")
+        print(correlations)
+
+
     if verbose:
         print("# of Columns:")
         print(len(X_train.columns))
-
-    # Do we want to show correlations?
-    if show_corr == True:
-        X_corr = X_train.copy(deep=True)
-        X_corr['Survived'] = y_train.copy(deep=True)
-        if verbose:
-            print(X_corr.corr()['Survived'])
 
     return X_train, y_train, X_test
 
@@ -192,6 +278,29 @@ def cabin_to_deck(cabin):
 
 
 
+def calculate_parent_survival_factor(X, person):
+    parent = get_parent(X, person)
+    if not parent.empty:
+        val = float(parent['Survival Guess'])
+    else:
+        val = 0
+    return val
+
+
+
+def get_parent(X, person):
+    ticket = person['Ticket']
+    family = X.loc[(X['Ticket'] == ticket)]
+    highest_age = -1.0
+    highest_age_person = family.iloc[0]
+    for i, row  in family.iterrows():
+        if row['Adj Age'] > highest_age:
+            highest_age_person = row
+            highest_age = row['Adj Age']
+
+    return highest_age_person
+
+
 
 def titanic():
 
@@ -205,7 +314,7 @@ def titanic():
     test_data = pd.read_csv(testfile)
 
     # Now munge the train data, but include test data so we get consistent one hot encoding
-    X_train, y_train, X_test = munge_data(train_data, test_data=test_data, show_corr=True, reduced_columns=True)
+    X_train, y_train, X_test = munge_data(train_data, test_data=test_data, reduced_columns=False, use_top=0.01)
 
     # Save out training data for bug fixing
     X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
@@ -251,3 +360,8 @@ def titanic():
     final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
     final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
 
+    # Create PairPlot graph
+    #import seaborn
+    #seaborn.set(style='whitegrid', context='notebook')
+    #top_data = pd.concat([y_train, X_train.ix[:,0:7]], axis=1)
+    #seaborn.pairplot(top_data)
