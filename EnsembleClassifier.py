@@ -10,6 +10,9 @@ import pickle
 from sklearn.naive_bayes import GaussianNB
 # from importlib import reload
 
+#TODO: Add Decision Tree
+#TODO: Make it easier to specify which estimators to use
+
 # noinspection PyPep8Naming
 def do_grid_search(X, y, estimator, parameters, persist_name="bestparams", cv=3):
     # Do grid search
@@ -39,8 +42,8 @@ def create_classifier(X, y, clf, name, grid_search, param_grid, use_persisted_va
         clf = do_grid_search(X, y, clf, param_grid, persist_name, cv=cv)
     elif use_persisted_values:
         params = load_best_parameters(persist_name)
-        if 'n_estimators' in params:
-            params['n_estimators'] = params['n_estimators'] * 10
+        #if 'n_estimators' in params:
+        #    params['n_estimators'] = params['n_estimators']
         clf = clf(**params)
         # Print out results of loaded parrameters
         print("")

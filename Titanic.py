@@ -12,6 +12,7 @@ from sklearn.model_selection import cross_val_score # Note: What is cross_val_pr
 import MachineLearningHelper as ml_helper
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
+import matplotlib.pyplot as plt
 
 #TODO: from PlotDecision import plot_decision_regions
 
@@ -143,7 +144,7 @@ def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True
 
     X_temp_train = X_all[0:len(X_train)][min_cols]
     # Make initial guess
-    clf = LogisticRegression()
+    clf = LogisticRegression(penalty='l2', C=10.0)
     clf.fit(X_temp_train, y_train)
 
     # Predict based on train and test together
@@ -207,6 +208,19 @@ def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True
         print(len(X_train.columns))
 
     return X_train, y_train, X_test
+
+
+
+def PerformPCA(X_all, n_components=2, verbose=True):
+    # Try PCAing All of X_all
+    pca = PCA(n_components=n_components)
+    pca_names = ['PCA'+str(num) for num in range(0,n_components)]
+    X_pca = pd.DataFrame(pca.fit_transform(X_all), columns=pca_names)
+    if verbose:
+        print("PCA Explained Variance Ratio")
+        print(pca.explained_variance_ratio_)
+
+    return X_pca
 
 
 
@@ -318,6 +332,13 @@ def titanic():
     # Save out transformed Test Data for bug fixing
     X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
+    # Try PCA
+    #X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
+    X_pca = PerformPCA(X_train, n_components=2)
+    X_train = X_pca
+    # Plot PCA version
+    plt.plot(X_train, y_train)
+    plt.show()
 
 
     """
@@ -362,3 +383,4 @@ def titanic():
     #seaborn.set(style='whitegrid', context='notebook')
     #top_data = pd.concat([y_train, X_train.ix[:,0:7]], axis=1)
     #seaborn.pairplot(top_data)
+
