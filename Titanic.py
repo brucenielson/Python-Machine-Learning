@@ -13,6 +13,7 @@ import MachineLearningHelper as ml_helper
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
+import PythonMLUtilities as pmlu
 
 #TODO: from PlotDecision import plot_decision_regions
 
@@ -333,13 +334,10 @@ def titanic():
     X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
     # Try PCA
-    #X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
-    X_pca = PerformPCA(X_train, n_components=10)
-    X_train = X_pca
-    # Plot PCA version
-    #plt.plot(X_train, y_train)
-    #plt.show()
-
+    X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
+    X_pca = PerformPCA(X_all, n_components=2)
+    X_train = X_pca[0:len(X_train)]
+    X_test = X_pca[len(X_train):len(X_all)]
 
     """
     best_features = ml_helper.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=10, create_graph=True)
@@ -351,7 +349,7 @@ def titanic():
     """
 
     # weights = [lr, svc, knn, rfc, nb]
-    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False,
+    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [0, 1, 0, 0, 0], grid_search=False,
                                     cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
     y_pred = clf.predict(X_train)
@@ -384,3 +382,5 @@ def titanic():
     #top_data = pd.concat([y_train, X_train.ix[:,0:7]], axis=1)
     #seaborn.pairplot(top_data)
 
+    # Plot PCA version
+    pmlu.plot_decision_regions(X_train, y_train, classifier=clf)

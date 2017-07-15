@@ -1,8 +1,14 @@
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
+    # Convert X and y to ndarray
+    if (type(X) == pd.DataFrame):
+        X = X.values
+    if (type(y) == pd.DataFrame):
+        y = y.value
     # Setup marker generator and color map
     markers = ('s', 'x', 'o', '^', 'v')
     colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
