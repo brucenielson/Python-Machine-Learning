@@ -335,7 +335,7 @@ def titanic():
 
     # Try PCA
     X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
-    X_pca = PerformPCA(X_all, n_components=2)
+    X_pca = PerformPCA(X_all, n_components=3)
     X_train = X_pca[0:len(X_train)]
     X_test = X_pca[len(X_train):len(X_all)]
 
@@ -349,7 +349,7 @@ def titanic():
     """
 
     # weights = [lr, svc, knn, rfc, nb]
-    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [0, 1, 0, 0, 0], grid_search=False,
+    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 0, 0, 0, 0], grid_search=False,
                                     cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
     y_pred = clf.predict(X_train)
@@ -383,4 +383,42 @@ def titanic():
     #seaborn.pairplot(top_data)
 
     # Plot PCA version
-    pmlu.plot_decision_regions(X_train, y_train, classifier=clf)
+    #pmlu.plot_decision_regions(X_train, y_train, classifier=clf)
+
+    from mpl_toolkits.mplot3d import Axes3D
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    x = X_train.ix[:,0].values
+    y = X_train.ix[:,1].values
+    z = X_train.ix[:,2].values
+    #ax.scatter(x[y_train == 0], y[y_train == 0], z[y_train == 0], c='b', marker='x')
+    #ax.scatter(x[y_train == 1], y[y_train == 1], z[y_train == 1], c='r', marker='o')
+
+    ax.set_xlabel('X Label')
+    ax.set_ylabel('Y Label')
+    ax.set_zlabel('Z Label')
+
+    # plot the decision surface
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    z_min, z_max = z.min(), z.max()
+
+    resolution = 0.05
+    xx, yy, zz = np.meshgrid(np.arange(x_min, x_max, resolution), np.arange(y_min, y_max, resolution), np.arange(z_min, z_max, resolution))
+    val = np.array([xx.ravel(), yy.ravel(), zz.ravel()]).T
+    val = val.reshape(xx.shape)
+    print(val.shape)
+    Z = clf.predict(val)
+    Z = Z.reshape(xx.shape)
+    print(Z.shape)
+    #colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
+    #from matplotlib.colors import ListedColormap
+    #cmap = ListedColormap(colors[:len(np.unique(y_train))])
+    ax.plot_surface(val[:,0], val[:,1], val[:,2], cmap='winter')
+    #ax.countourf(x, y, z, alpha=0.4, cmap=cmap)
+    #ax.xlim(xx.min(), xx.max())
+    #ax.ylim(yy.min(), yy.max())
+    #ax.zlim(zz.min(), zz.max())
+
+    plt.show()
