@@ -137,7 +137,7 @@ def train_ensemble_classifier(X, y, use_persisted_values=False, grid_search=Fals
     print("")
     print('Estimators: ' + str([item[0] for item in estimators]))
     # Create majority vote ensemble classifier
-    ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights)
+    ensemble_clf = VotingClassifier(estimators=estimators, voting='soft', weights=weights, n_jobs=-1)
 
     # Train final model
     ensemble_clf.fit(X, y)

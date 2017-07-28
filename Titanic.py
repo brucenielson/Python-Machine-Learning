@@ -147,6 +147,7 @@ def munge_data(train_data, test_data=None, reduced_columns = False, verbose=True
 
     X_temp_train = X_all[0:len(X_train)][min_cols]
     # Make initial guess
+    #clf = classifier.train_ensemble_classifier(X_temp_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False, cv=10, persist_name="TitanicParams", use_persisted_values=True)
     clf = LogisticRegression(penalty='l2', C=10.0)
     clf.fit(X_temp_train, y_train)
 
@@ -329,17 +330,19 @@ def titanic():
     test_data = pd.read_csv(testfile)
 
     # Now munge the train data, but include test data so we get consistent one hot encoding
-    X_train, y_train, X_test = munge_data(train_data, test_data=test_data, reduced_columns=False, use_top=0.01)
+    X_train, y_train, X_test = munge_data(train_data, test_data=test_data, reduced_columns=False, use_top=None)
     # Save out training data for bug fixing
     X_train.to_csv(os.getcwd() + '\\Titanic\\CheckData.csv', index=False)
     # Save out transformed Test Data for bug fixing
     X_test.to_csv(os.getcwd() + '\\Titanic\\Xtest.csv')
 
+    """
     # Try PCA
     X_all = X_all = pd.concat([X_train, X_test], ignore_index=True)
     X_pca = PerformPCA(X_all, n_components=3)
     X_train = X_pca[0:len(X_train)]
     X_test = X_pca[len(X_train):len(X_all)]
+    """
 
     """
     best_features = ml_helper.get_best_recursive_features(X_train, y_train, logistic_regression=True, random_forest = True, decision_tree = True, cv=10, create_graph=True)
@@ -378,8 +381,8 @@ def titanic():
     final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
     final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
 
-    pmlu.plot_decision_regions3d(X_train, y_train, clf)
-    pmlu.plot_decision_plane(X_train, y_train, clf)
+    #pmlu.plot_decision_regions3d(X_train, y_train, clf)
+    #pmlu.plot_decision_plane(X_train, y_train, clf)
 
     # Create PairPlot graph
     #import seaborn
