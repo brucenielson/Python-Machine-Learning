@@ -392,8 +392,8 @@ def titanic():
     x = X_train.ix[:,0].values
     y = X_train.ix[:,1].values
     z = X_train.ix[:,2].values
-    #ax.scatter(x[y_train == 0], y[y_train == 0], z[y_train == 0], c='b', marker='x')
-    #ax.scatter(x[y_train == 1], y[y_train == 1], z[y_train == 1], c='r', marker='o')
+    ax.scatter(x[y_train == 0], y[y_train == 0], z[y_train == 0], c='b', marker='x')
+    ax.scatter(x[y_train == 1], y[y_train == 1], z[y_train == 1], c='r', marker='o')
 
     ax.set_xlabel('X Label')
     ax.set_ylabel('Y Label')
@@ -404,18 +404,28 @@ def titanic():
     y_min, y_max = y.min(), y.max()
     z_min, z_max = z.min(), z.max()
 
-    resolution = 0.05
+    resolution = 2.0
     xx, yy, zz = np.meshgrid(np.arange(x_min, x_max, resolution), np.arange(y_min, y_max, resolution), np.arange(z_min, z_max, resolution))
     val = np.array([xx.ravel(), yy.ravel(), zz.ravel()]).T
-    val = val.reshape(xx.shape)
-    print(val.shape)
     Z = clf.predict(val)
     Z = Z.reshape(xx.shape)
+    # print(xx.shape)
+    print(yy.shape)
+    print(zz.shape)
+    print(val.shape)
     print(Z.shape)
-    #colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
+    #val = val.reshape(xx.shape)
+    #print(val.shape)
+
+    #Z = Z.reshape(xx.shape)
+    #print(Z.shape)
+
+    colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
     #from matplotlib.colors import ListedColormap
     #cmap = ListedColormap(colors[:len(np.unique(y_train))])
-    ax.plot_surface(val[:,0], val[:,1], val[:,2], cmap='winter')
+    ax.scatter(xx[Z == 0], yy[Z == 0], zz[Z == 0], c='b', marker='.')
+    ax.scatter(xx[Z == 1], yy[Z == 1], zz[Z == 1], c='r', marker='.')
+    #ax.plot_surface(val[:,0], val[:,1], val[:,2], cmap='winter')
     #ax.countourf(x, y, z, alpha=0.4, cmap=cmap)
     #ax.xlim(xx.min(), xx.max())
     #ax.ylim(yy.min(), yy.max())
