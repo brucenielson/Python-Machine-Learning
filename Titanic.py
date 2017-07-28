@@ -13,7 +13,9 @@ import MachineLearningHelper as ml_helper
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 import PythonMLUtilities as pmlu
+from mpl_toolkits.mplot3d import Axes3D
 
 #TODO: from PlotDecision import plot_decision_regions
 
@@ -349,7 +351,7 @@ def titanic():
     """
 
     # weights = [lr, svc, knn, rfc, nb]
-    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 0, 0, 0, 0], grid_search=False,
+    clf = classifier.train_ensemble_classifier(X_train, y_train, weights = [1, 1, 1, 1, 0], grid_search=False,
                                     cv=10, persist_name="TitanicParams", use_persisted_values=True)
 
     y_pred = clf.predict(X_train)
@@ -376,59 +378,12 @@ def titanic():
     final_submission = pd.concat([test_data['PassengerId'], y_pred], axis=1)
     final_submission.to_csv(os.getcwd() + '\\Titanic\\FinalSubmission.csv', index=False)
 
+    pmlu.plot_decision_regions3d(X_train, y_train, clf)
+    pmlu.plot_decision_plane(X_train, y_train, clf)
+
     # Create PairPlot graph
     #import seaborn
     #seaborn.set(style='whitegrid', context='notebook')
     #top_data = pd.concat([y_train, X_train.ix[:,0:7]], axis=1)
     #seaborn.pairplot(top_data)
 
-    # Plot PCA version
-    #pmlu.plot_decision_regions(X_train, y_train, classifier=clf)
-
-    from mpl_toolkits.mplot3d import Axes3D
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    x = X_train.ix[:,0].values
-    y = X_train.ix[:,1].values
-    z = X_train.ix[:,2].values
-    ax.scatter(x[y_train == 0], y[y_train == 0], z[y_train == 0], c='b', marker='x')
-    ax.scatter(x[y_train == 1], y[y_train == 1], z[y_train == 1], c='r', marker='o')
-
-    ax.set_xlabel('X Label')
-    ax.set_ylabel('Y Label')
-    ax.set_zlabel('Z Label')
-
-    # plot the decision surface
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    z_min, z_max = z.min(), z.max()
-
-    resolution = 2.0
-    xx, yy, zz = np.meshgrid(np.arange(x_min, x_max, resolution), np.arange(y_min, y_max, resolution), np.arange(z_min, z_max, resolution))
-    val = np.array([xx.ravel(), yy.ravel(), zz.ravel()]).T
-    Z = clf.predict(val)
-    Z = Z.reshape(xx.shape)
-    # print(xx.shape)
-    print(yy.shape)
-    print(zz.shape)
-    print(val.shape)
-    print(Z.shape)
-    #val = val.reshape(xx.shape)
-    #print(val.shape)
-
-    #Z = Z.reshape(xx.shape)
-    #print(Z.shape)
-
-    colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
-    #from matplotlib.colors import ListedColormap
-    #cmap = ListedColormap(colors[:len(np.unique(y_train))])
-    ax.scatter(xx[Z == 0], yy[Z == 0], zz[Z == 0], c='b', marker='.')
-    ax.scatter(xx[Z == 1], yy[Z == 1], zz[Z == 1], c='r', marker='.')
-    #ax.plot_surface(val[:,0], val[:,1], val[:,2], cmap='winter')
-    #ax.countourf(x, y, z, alpha=0.4, cmap=cmap)
-    #ax.xlim(xx.min(), xx.max())
-    #ax.ylim(yy.min(), yy.max())
-    #ax.zlim(zz.min(), zz.max())
-
-    plt.show()
