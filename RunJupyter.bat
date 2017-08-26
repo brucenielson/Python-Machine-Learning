@@ -1,2 +1,2 @@
-%Anaconda3%\Scripts\jupyter notebook
+%Anaconda3%\envs\Python-Machine-Learning\Scripts\jupyter notebook
 

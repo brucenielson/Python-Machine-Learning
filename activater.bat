@@ -1,2 +1,2 @@
-"%Anaconda3%\Scripts\activate" Keras
+"%Anaconda3%\Scripts\activate" Python-Machine-Learning
 
